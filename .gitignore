@@ -1,0 +1,79 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm
+.eslintcache
+*.tsbuildinfo
+
+# Environment / secrets
+.env
+.env.*
+.env.padelapp
+.env.padelapp.*
+!.env.example
+!env.padelapp.example
+secrets/
+*.pem
+*.p8
+*.p12
+*.mobileprovision
+*.keystore
+!debug.keystore
+
+# Expo / React Native
+.expo/
+.expo-shared/
+.expo-source/
+dist/
+web-build/
+*.jsbundle
+*.ipa
+*.apk
+*.aab
+*.dSYM
+*.dSYM.zip
+
+# Xcode
+build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+ios/.xcode.env.local
+ios/Pods/
+**/Pods/
+
+# Android
+.gradle/
+local.properties
+*.iml
+.cxx/
+android/app/build/
+android/build/
+
+# Web
+.next/
+out/
+
+# Tests / coverage
+coverage/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*~
+
+# Local overrides
+local/
+*.local.*
