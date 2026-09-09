@@ -1,0 +1,23 @@
+# Isolated Postgres — port 5433 so it never collides with other apps.
+name: padelapp
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: padelapp-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: padelapp
+      POSTGRES_PASSWORD: padelapp
+      POSTGRES_DB: padelapp
+    volumes:
+      - padelapp_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U padelapp -d padelapp"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  padelapp_pgdata:

@@ -1,0 +1,33 @@
+{
+  "name": "padelapp",
+  "private": true,
+  "version": "0.1.0",
+  "description": "White-label padel club OS — iOS and Android, isolated from other apps",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "postinstall": "npm run build -w @padelapp/shared --if-present && patch-package",
+    "type-check": "npm run type-check --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "dev:api": "npm run dev -w @padelapp/api",
+    "dev:web": "npm run dev -w @padelapp/web",
+    "dev:mobile": "npm run start -w @padelapp/mobile",
+    "db:up": "docker compose -f docker-compose.padelapp.yml up -d",
+    "db:down": "docker compose -f docker-compose.padelapp.yml down",
+    "db:migrate": "npm run migrate -w @padelapp/api",
+    "db:seed": "npm run seed -w @padelapp/api",
+    "setup": "npm run db:up && npm run db:migrate && npm run db:seed"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "overrides": {
+    "react-native-screens": "4.4.0",
+    "react-native-safe-area-context": "4.12.0"
+  },
+  "devDependencies": {
+    "patch-package": "^8.0.1"
+  }
+}

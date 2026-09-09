@@ -74,6 +74,9 @@ playwright/.cache/
 *.swp
 *~
 
+# Isolated local database files (PGlite)
+data/
+
 # Local overrides
 local/
 *.local.*
