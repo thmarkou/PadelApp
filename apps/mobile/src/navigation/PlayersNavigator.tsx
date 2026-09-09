@@ -1,5 +1,6 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useTranslation } from "react-i18next";
+import { useSignedIn } from "../auth/AuthProvider";
 import { PlayerFormScreen } from "../screens/PlayerFormScreen";
 import { PlayersScreen } from "../screens/PlayersScreen";
 import { colors } from "../theme";
@@ -9,6 +10,7 @@ const Stack = createNativeStackNavigator<PlayersStackParamList>();
 
 export function PlayersNavigator() {
   const { t } = useTranslation();
+  const { user } = useSignedIn();
   return (
     <Stack.Navigator
       screenOptions={{
@@ -21,7 +23,7 @@ export function PlayersNavigator() {
       <Stack.Screen
         name="PlayersList"
         component={PlayersScreen}
-        options={{ title: t("tabs.players") }}
+        options={{ title: user.role === "player" ? t("tabs.profile") : t("tabs.players") }}
       />
       <Stack.Screen
         name="PlayerForm"

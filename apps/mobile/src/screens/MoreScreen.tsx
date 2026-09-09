@@ -45,8 +45,17 @@ export function MoreScreen() {
       >
         <Text style={styles.settingsText}>{t("more.openMatches")}</Text>
       </Pressable>
-      <Pressable style={styles.settings} onPress={() => navigation.navigate("Players")}>
-        <Text style={styles.settingsText}>{t("more.openPlayers")}</Text>
+      <Pressable
+        style={styles.settings}
+        onPress={() =>
+          user.role === "player"
+            ? navigation.navigate("Players", { screen: "PlayerForm", params: { me: true } })
+            : navigation.navigate("Players")
+        }
+      >
+        <Text style={styles.settingsText}>
+          {user.role === "player" ? t("home.myProfile") : t("more.openPlayers")}
+        </Text>
       </Pressable>
       {canEditClubSettings(user.role) ? (
         <Pressable style={styles.settings} onPress={() => navigation.navigate("Settings")}>

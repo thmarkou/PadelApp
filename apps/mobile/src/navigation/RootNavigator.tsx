@@ -78,7 +78,10 @@ function MainTabs() {
       <Tab.Screen
         name="Players"
         component={PlayersNavigator}
-        options={{ headerShown: false, title: t("tabs.players") }}
+        options={{
+          headerShown: false,
+          title: role === "player" ? t("tabs.profile") : t("tabs.players"),
+        }}
       />
       {showSettings ? (
         <Tab.Screen

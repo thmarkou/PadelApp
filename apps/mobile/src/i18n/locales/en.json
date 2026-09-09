@@ -20,6 +20,7 @@
     "courts": "Courts",
     "calendar": "Calendar",
     "players": "Players",
+    "profile": "Profile",
     "settings": "Settings",
     "more": "More"
   },
@@ -49,6 +50,7 @@
     "courtsHeading": "This club’s courts",
     "courtsHint": "Count and hours come from the club, not from the app binary.",
     "seeAll": "All courts",
+    "myProfile": "My profile",
     "staffHint": "Set up this club from the Settings tab. Courts are a list, not a hardcoded number.",
     "coachHint": "You confirm levels and propose pairings on a full four.",
     "playerHint": "See open hours on the calendar. Book 1 to 4 names, existing or new."

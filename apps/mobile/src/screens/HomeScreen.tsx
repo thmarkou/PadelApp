@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { roleHintKey, useSignedIn } from "../auth/AuthProvider";
-import { canEditClubSettings } from "../lib/api";
+import { canEditClubSettings, canManagePlayers } from "../lib/api";
 import type { MainTabParamList } from "../navigation/types";
 import { colors } from "../theme";
 
@@ -12,6 +12,8 @@ export function HomeScreen() {
   const { user, club, courts, settings } = useSignedIn();
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
   const brand = settings?.branding.primaryColor ?? colors.green;
+  const desk = canEditClubSettings(user.role);
+  const staff = canManagePlayers(user.role);
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.flex}>
@@ -64,13 +66,24 @@ export function HomeScreen() {
       >
         <Text style={[styles.linkText, { color: brand }]}>{t("tournaments.title")}</Text>
       </Pressable>
-      <Pressable style={styles.link} onPress={() => navigation.navigate("Players")}>
-        <Text style={[styles.linkText, { color: brand }]}>{t("tabs.players")}</Text>
-      </Pressable>
-      <Pressable style={styles.link} onPress={() => navigation.navigate("Courts")}>
-        <Text style={[styles.linkText, { color: brand }]}>{t("home.seeAll")}</Text>
-      </Pressable>
-      {canEditClubSettings(user.role) ? (
+      {staff ? (
+        <Pressable style={styles.link} onPress={() => navigation.navigate("Players")}>
+          <Text style={[styles.linkText, { color: brand }]}>{t("tabs.players")}</Text>
+        </Pressable>
+      ) : (
+        <Pressable
+          style={styles.link}
+          onPress={() => navigation.navigate("Players", { screen: "PlayerForm", params: { me: true } })}
+        >
+          <Text style={[styles.linkText, { color: brand }]}>{t("home.myProfile")}</Text>
+        </Pressable>
+      )}
+      {staff || courts.length > 4 ? (
+        <Pressable style={styles.link} onPress={() => navigation.navigate("Courts")}>
+          <Text style={[styles.linkText, { color: brand }]}>{t("home.seeAll")}</Text>
+        </Pressable>
+      ) : null}
+      {desk ? (
         <Pressable style={styles.link} onPress={() => navigation.navigate("Settings")}>
           <Text style={[styles.linkText, { color: brand }]}>{t("more.openSettings")}</Text>
         </Pressable>
