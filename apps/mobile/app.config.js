@@ -107,6 +107,7 @@ module.exports = {
     android: {
       package: "com.padelapp.app",
       usesCleartextTraffic: true,
+      permissions: ["INTERNET", "ACCESS_NETWORK_STATE"],
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#1F6B4A",

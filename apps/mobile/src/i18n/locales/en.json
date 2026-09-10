@@ -27,7 +27,11 @@
   "login": {
     "kicker": "PadelApp",
     "title": "Sign in to your club",
-    "subtitle": "One app for reception and players. Only the role changes.",
+    "subtitle": "One app for reception and players. Enter your club code and account.",
+    "memberHint": "No code? Ask reception. You pay nothing in the Store.",
+    "ownerHint": "Run a club? Download the app for free. We set the club up with you — it is not an in-app purchase.",
+    "advancedServer": "Different club address",
+    "hideServer": "Hide address",
     "club": "Club",
     "clubPlaceholder": "club code",
     "email": "Email",

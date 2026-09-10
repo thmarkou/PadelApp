@@ -69,10 +69,12 @@ Format + scoring από presets. Ο owner ορίζει κατηγορίες: α�
 
 ### Φάση 7 — Store, γλώσσες, απομόνωση club
 
-- iOS TestFlight και Android internal testing.
-- Έλεγχος: club A δεν βλέπει δεδομένα club B.
-- Κενά i18n = αποτυχία build / lint, όχι σιωπηλό ελληνικό.
-- Συνταγή εγκατάστασης API στο VPS του πελάτη (χωρίς web). Η εφαρμογή δείχνει στο URL εκείνου του club.
+- iOS TestFlight και Android internal testing: συνταγή στο [STORE.md](STORE.md). Listing δωρεάν, χωρίς τιμές στήσιμο. Review notes με demo `club-a`.
+- Έλεγχος: club A δεν βλέπει δεδομένα club B (`apps/api` isolation test). Queries τουρνουά φιλτράρουν και `club_id`.
+- Κενά i18n = `npm test` / `npm run lint:i18n` αποτυγχάνει. Όχι σιωπηλό ελληνικό.
+- Συνταγή API στο VPS: [VPS.md](VPS.md). Πολιτική απορρήτου για το Store: [PRIVACY.md](PRIVACY.md).
+
+Η υποβολή στο App Store / Play (λογαριασμοί Apple/Google, πιστοποιητικά) γίνεται από τον Fanis όταν σταθεροποιηθεί το Release build.
 
 ## Σειρά
 

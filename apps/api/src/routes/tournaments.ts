@@ -179,14 +179,14 @@ tournamentsRouter.get(
     }>(
       `SELECT e.id, e.player_id, p.display_name, p.gender, p.birth_year, p.self_level, p.confirmed_level
        FROM tournament_entries e
-       JOIN players p ON p.id = e.player_id
-       WHERE e.category_id = $1
+       JOIN players p ON p.id = e.player_id AND p.club_id = e.club_id
+       WHERE e.category_id = $1 AND e.club_id = $2
        ORDER BY p.display_name`,
-      [category.id],
+      [category.id, auth.clubId],
     );
     const rounds = await query<{ id: string; number: number }>(
-      `SELECT id, number FROM tournament_rounds WHERE category_id = $1 ORDER BY number`,
-      [category.id],
+      `SELECT id, number FROM tournament_rounds WHERE category_id = $1 AND club_id = $2 ORDER BY number`,
+      [category.id, auth.clubId],
     );
     const matches = await query<{
       id: string;
@@ -210,9 +210,9 @@ tournamentsRouter.get(
        LEFT JOIN players pa2 ON pa2.id = m.a2
        LEFT JOIN players pb1 ON pb1.id = m.b1
        LEFT JOIN players pb2 ON pb2.id = m.b2
-       WHERE m.category_id = $1
+       WHERE m.category_id = $1 AND m.club_id = $2
        ORDER BY m.court_index`,
-      [category.id],
+      [category.id, auth.clubId],
     );
     const scored = matches.rows
       .filter((row) => row.a1 && row.a2 && row.b1 && row.b2)
@@ -365,13 +365,13 @@ tournamentsRouter.post(
       confirmed_level: string | number | null;
     }>(
       `SELECT e.player_id, p.display_name, p.gender, p.self_level, p.confirmed_level
-       FROM tournament_entries e JOIN players p ON p.id = e.player_id
-       WHERE e.category_id = $1`,
-      [category.id],
+       FROM tournament_entries e JOIN players p ON p.id = e.player_id AND p.club_id = e.club_id
+       WHERE e.category_id = $1 AND e.club_id = $2`,
+      [category.id, auth.clubId],
     );
     const last = await query<{ number: number }>(
-      `SELECT number FROM tournament_rounds WHERE category_id = $1 ORDER BY number DESC LIMIT 1`,
-      [category.id],
+      `SELECT number FROM tournament_rounds WHERE category_id = $1 AND club_id = $2 ORDER BY number DESC LIMIT 1`,
+      [category.id, auth.clubId],
     );
     const nextNumber = (last.rows[0]?.number ?? 0) + 1;
     const existingMatches = await query<{
@@ -382,8 +382,8 @@ tournamentsRouter.post(
       score_a: number | null;
       score_b: number | null;
     }>(
-      `SELECT a1, a2, b1, b2, score_a, score_b FROM tournament_matches WHERE category_id = $1`,
-      [category.id],
+      `SELECT a1, a2, b1, b2, score_a, score_b FROM tournament_matches WHERE category_id = $1 AND club_id = $2`,
+      [category.id, auth.clubId],
     );
     const table = standingsFromMatches(
       entries.rows.map((row) => ({ id: row.player_id, name: row.display_name })),

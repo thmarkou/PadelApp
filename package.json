@@ -10,7 +10,8 @@
   "scripts": {
     "postinstall": "npm run build -w @padelapp/shared --if-present && patch-package",
     "type-check": "npm run type-check --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "test": "node scripts/check-i18n.mjs && npm run test --workspaces --if-present",
+    "lint:i18n": "node scripts/check-i18n.mjs",
     "dev:api": "npm run dev -w @padelapp/api",
     "dev:web": "npm run dev -w @padelapp/web",
     "dev:mobile": "npm run start -w @padelapp/mobile",

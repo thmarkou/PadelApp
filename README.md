@@ -3,7 +3,7 @@
 Λειτουργικό σύστημα για padel clubs ως **μία εφαρμογή iOS και Android**.
 Χωρίς web έκδοση. Ελληνικά και Αγγλικά από την πρώτη οθόνη.
 
-Διάβασε [docs/PRODUCT.md](docs/PRODUCT.md), [docs/PLAN.md](docs/PLAN.md) και [docs/CHANGELOG.md](docs/CHANGELOG.md) πριν γράψεις κώδικα.
+Διάβασε [docs/PRODUCT.md](docs/PRODUCT.md), [docs/PLAN.md](docs/PLAN.md) και [docs/CHANGELOG.md](docs/CHANGELOG.md) πριν γράψεις κώδικα. Store: [docs/STORE.md](docs/STORE.md). VPS: [docs/VPS.md](docs/VPS.md).
 
 ## Isolation
 

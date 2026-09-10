@@ -28,9 +28,10 @@ export function LoginScreen() {
   const { signIn } = useAuth();
   const [clubs, setClubs] = useState<PublicClub[]>([]);
   const [clubSlug, setClubSlug] = useState("");
-  const [email, setEmail] = useState(DEV_EMAIL);
-  const [password, setPassword] = useState(DEV_PASSWORD);
+  const [email, setEmail] = useState(__DEV__ ? DEV_EMAIL : "");
+  const [password, setPassword] = useState(__DEV__ ? DEV_PASSWORD : "");
   const [serverUrl, setServerUrl] = useState(defaultApiUrl());
+  const [showServer, setShowServer] = useState(__DEV__);
   const [apiUp, setApiUp] = useState<boolean | null>(null);
   const [endpoint, setEndpoint] = useState(apiBaseUrl());
   const [loading, setLoading] = useState(false);
@@ -88,18 +89,30 @@ export function LoginScreen() {
         <Text style={styles.kicker}>{t("login.kicker")}</Text>
         <Text style={styles.title}>{t("login.title")}</Text>
         <Text style={styles.subtitle}>{t("login.subtitle")}</Text>
+        <Text style={styles.memberHint}>{t("login.memberHint")}</Text>
 
-        <Text style={styles.label}>{t("login.server")}</Text>
-        <TextInput
-          value={serverUrl}
-          onChangeText={setServerUrl}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          placeholder={defaultApiUrl()}
-          placeholderTextColor={colors.muted}
-          style={styles.input}
-        />
+        <Pressable
+          onPress={() => setShowServer((current) => !current)}
+          hitSlop={8}
+          style={styles.retryHit}
+        >
+          <Text style={styles.retry}>{showServer ? t("login.hideServer") : t("login.advancedServer")}</Text>
+        </Pressable>
+        {showServer || apiUp === false ? (
+          <>
+            <Text style={styles.label}>{t("login.server")}</Text>
+            <TextInput
+              value={serverUrl}
+              onChangeText={setServerUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              placeholder={defaultApiUrl()}
+              placeholderTextColor={colors.muted}
+              style={styles.input}
+            />
+          </>
+        ) : null}
 
         <Text style={styles.label}>{t("login.club")}</Text>
         {clubs.length === 0 && apiUp ? (
@@ -178,7 +191,7 @@ export function LoginScreen() {
               : t("login.apiOffline")}
         </Text>
         {apiUp === false ? <Text style={styles.offlineHelp}>{t("login.apiOfflineHelp")}</Text> : null}
-        <Text style={styles.apiUrl}>{endpoint}</Text>
+        {showServer || apiUp === false ? <Text style={styles.apiUrl}>{endpoint}</Text> : null}
         <Pressable
           onPress={() => {
             void loadClubs(serverUrl);
@@ -193,6 +206,7 @@ export function LoginScreen() {
             {t("login.devHint", { email: DEV_EMAIL, password: DEV_PASSWORD })}
           </Text>
         ) : null}
+        <Text style={styles.ownerHint}>{t("login.ownerHint")}</Text>
       </ScrollView>
     </KeyboardAvoidingView>
     </SafeAreaView>
@@ -222,7 +236,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     color: colors.muted,
-    marginBottom: 12,
+  },
+  memberHint: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.muted,
+    marginBottom: 4,
+  },
+  ownerHint: {
+    marginTop: 20,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.muted,
   },
   label: {
     marginTop: 6,
