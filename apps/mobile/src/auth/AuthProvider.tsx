@@ -16,6 +16,7 @@ import {
   fetchSettings,
   loginRequest,
   logoutRequest,
+  registerRequest,
   saveSettingsRequest,
 } from "../lib/api";
 
@@ -34,9 +35,13 @@ type AuthState =
   | { status: "signedOut" }
   | ({ status: "signedIn" } & SignedInSession);
 
+type Credentials = { clubSlug: string; email: string; password: string };
+type RegisterInput = Credentials & { displayName: string };
+
 type AuthContextValue = {
   state: AuthState;
-  signIn: (input: { clubSlug: string; email: string; password: string }) => Promise<void>;
+  signIn: (input: Credentials) => Promise<void>;
+  signUp: (input: RegisterInput) => Promise<void>;
   signOut: () => Promise<void>;
   refreshCourts: () => Promise<void>;
   saveSettings: (settings: ClubSettings) => Promise<void>;
@@ -83,14 +88,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const applyToken = useCallback(async (token: string) => {
+    const session = await loadSession(token);
+    await SecureStore.setItemAsync(TOKEN_KEY, token);
+    setState({ status: "signedIn", ...session });
+  }, []);
+
   const signIn = useCallback(
-    async (input: { clubSlug: string; email: string; password: string }) => {
+    async (input: Credentials) => {
       const logged = await loginRequest(input);
-      const session = await loadSession(logged.token);
-      await SecureStore.setItemAsync(TOKEN_KEY, logged.token);
-      setState({ status: "signedIn", ...session });
+      await applyToken(logged.token);
     },
-    [],
+    [applyToken],
+  );
+
+  const signUp = useCallback(
+    async (input: RegisterInput) => {
+      const registered = await registerRequest(input);
+      await applyToken(registered.token);
+    },
+    [applyToken],
   );
 
   const signOut = useCallback(async () => {
@@ -132,8 +149,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ state, signIn, signOut, refreshCourts, saveSettings }),
-    [state, signIn, signOut, refreshCourts, saveSettings],
+    () => ({ state, signIn, signUp, signOut, refreshCourts, saveSettings }),
+    [state, signIn, signUp, signOut, refreshCourts, saveSettings],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

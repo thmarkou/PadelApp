@@ -7,6 +7,7 @@ import { isApiError, useAuth, useSignedIn } from "../auth/AuthProvider";
 import { Chip, ChipWrap, Field, ToggleRow } from "../components/forms";
 import { createCourt, patchCourt } from "../lib/api";
 import type { CourtsStackParamList } from "../navigation/types";
+import { colors } from "../theme";
 import { SettingsSaveBar, SettingsScroll } from "./settings/form";
 
 export function CourtFormScreen() {
@@ -54,6 +55,7 @@ export function CourtFormScreen() {
         <Chip label={t("courts.indoor")} selected={kind === "indoor"} onPress={() => setKind("indoor")} />
         <Chip label={t("courts.outdoor")} selected={kind === "outdoor"} onPress={() => setKind("outdoor")} />
       </ChipWrap>
+      <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 18 }}>{t("courts.kindHint")}</Text>
       <Field label={t("courts.openTime")} value={openTime} onChangeText={setOpenTime} autoCapitalize="none" />
       <Field label={t("courts.closeTime")} value={closeTime} onChangeText={setCloseTime} autoCapitalize="none" />
       <ToggleRow label={t("courts.active")} value={isActive} onValueChange={setIsActive} />

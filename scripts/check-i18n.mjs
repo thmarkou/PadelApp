@@ -8,8 +8,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const localeDir = path.join(root, "apps/mobile/src/i18n/locales");
-const sourceDir = path.join(root, "apps/mobile/src");
 
 function hasKey(keys, key) {
   return keys.has(key) || keys.has(`${key}_one`) || keys.has(`${key}_other`);
@@ -31,8 +29,8 @@ function flatten(value, prefix = "") {
   return keys;
 }
 
-function readLocale(file) {
-  return JSON.parse(fs.readFileSync(path.join(localeDir, file), "utf8"));
+function readLocale(dir, file) {
+  return JSON.parse(fs.readFileSync(path.join(dir, file), "utf8"));
 }
 
 function walk(dir) {
@@ -49,41 +47,57 @@ function walk(dir) {
   return files;
 }
 
-const el = readLocale("el.json");
-const en = readLocale("en.json");
-const elKeys = new Set(flatten(el));
-const enKeys = new Set(flatten(en));
+function checkPair(label, localeDir, sourceDir) {
+  const el = readLocale(localeDir, "el.json");
+  const en = readLocale(localeDir, "en.json");
+  const elKeys = new Set(flatten(el));
+  const enKeys = new Set(flatten(en));
 
-const onlyEl = [...elKeys].filter((key) => !enKeys.has(key)).sort();
-const onlyEn = [...enKeys].filter((key) => !elKeys.has(key)).sort();
+  const onlyEl = [...elKeys].filter((key) => !enKeys.has(key)).sort();
+  const onlyEn = [...enKeys].filter((key) => !elKeys.has(key)).sort();
 
-/** @type {string[]} */
-const missingInLocales = [];
-const staticKey = /\bt\(\s*["']([a-zA-Z0-9_.]+)["']/g;
+  /** @type {string[]} */
+  const missingInLocales = [];
+  const staticKey = /\bt\(\s*["']([a-zA-Z0-9_.]+)["']/g;
 
-for (const file of walk(sourceDir)) {
-  const text = fs.readFileSync(file, "utf8");
-  for (const match of text.matchAll(staticKey)) {
-    const key = match[1];
-    if (!hasKey(elKeys, key) || !hasKey(enKeys, key)) {
-      missingInLocales.push(`${path.relative(root, file)}: ${key}`);
+  for (const file of walk(sourceDir)) {
+    const text = fs.readFileSync(file, "utf8");
+    for (const match of text.matchAll(staticKey)) {
+      const key = match[1];
+      if (!hasKey(elKeys, key) || !hasKey(enKeys, key)) {
+        missingInLocales.push(`${path.relative(root, file)}: ${key}`);
+      }
+    }
+  }
+
+  const uniqueMissing = [...new Set(missingInLocales)].sort();
+  return { label, elKeys, onlyEl, onlyEn, uniqueMissing };
+}
+
+const pairs = [
+  checkPair("mobile", path.join(root, "apps/mobile/src/i18n/locales"), path.join(root, "apps/mobile/src")),
+  checkPair("web", path.join(root, "apps/web/src/i18n/locales"), path.join(root, "apps/web/src")),
+];
+
+let failed = false;
+for (const pair of pairs) {
+  if (pair.onlyEl.length || pair.onlyEn.length || pair.uniqueMissing.length) {
+    failed = true;
+    if (pair.onlyEl.length) {
+      console.error(`[${pair.label}] Keys in el.json missing from en.json:\n  ${pair.onlyEl.join("\n  ")}`);
+    }
+    if (pair.onlyEn.length) {
+      console.error(`[${pair.label}] Keys in en.json missing from el.json:\n  ${pair.onlyEn.join("\n  ")}`);
+    }
+    if (pair.uniqueMissing.length) {
+      console.error(`[${pair.label}] t("…") keys missing from a locale file:\n  ${pair.uniqueMissing.join("\n  ")}`);
     }
   }
 }
 
-const uniqueMissing = [...new Set(missingInLocales)].sort();
-
-if (onlyEl.length || onlyEn.length || uniqueMissing.length) {
-  if (onlyEl.length) {
-    console.error("Keys in el.json missing from en.json:\n  " + onlyEl.join("\n  "));
-  }
-  if (onlyEn.length) {
-    console.error("Keys in en.json missing from el.json:\n  " + onlyEn.join("\n  "));
-  }
-  if (uniqueMissing.length) {
-    console.error("t(\"…\") keys missing from a locale file:\n  " + uniqueMissing.join("\n  "));
-  }
+if (failed) {
   process.exit(1);
 }
 
-console.log(`i18n ok: ${elKeys.size} keys in el+en`);
+const total = pairs.reduce((sum, pair) => sum + pair.elKeys.size, 0);
+console.log(`i18n ok: ${pairs.map((pair) => `${pair.label} ${pair.elKeys.size}`).join(", ")} (${total} keys)`);

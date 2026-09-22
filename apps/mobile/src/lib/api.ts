@@ -154,6 +154,18 @@ export async function loginRequest(input: {
   });
 }
 
+export async function registerRequest(input: {
+  clubSlug: string;
+  email: string;
+  password: string;
+  displayName: string;
+}): Promise<LoginResponse> {
+  return apiFetch<LoginResponse>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export async function fetchMe(token: string): Promise<{ user: AppUser; club: Club }> {
   return apiFetch("/me", { token });
 }
@@ -512,6 +524,7 @@ export type TournamentMatchView = {
   playerIds: { a1: string | null; a2: string | null; b1: string | null; b2: string | null };
   scoreA: number | null;
   scoreB: number | null;
+  closed: boolean;
 };
 
 export type TournamentRoundView = {
@@ -597,6 +610,10 @@ export async function generateCategoryRound(
   categoryId: string,
 ): Promise<{ leftover: Array<{ id: string; name: string }>; round: number }> {
   return apiFetch(`/categories/${categoryId}/rounds`, { method: "POST", token });
+}
+
+export async function closeMatch(token: string, matchId: string): Promise<void> {
+  await apiFetch(`/matches/${matchId}/close`, { method: "POST", token });
 }
 
 export async function saveMatchScore(

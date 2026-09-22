@@ -1,7 +1,12 @@
 import type { AppRole } from "@padelapp/shared";
 import { Router } from "express";
 import { z } from "zod";
-import { newSessionToken, verifyPassword } from "../auth/password.js";
+import { hashPassword, newSessionToken, verifyPassword } from "../auth/password.js";
+import {
+  createPlayer,
+  findUnlinkedPlayerByEmail,
+  linkPlayerToUser,
+} from "../db/players.js";
 import { query } from "../db/pool.js";
 import { asyncHandler } from "../http/asyncHandler.js";
 import { requireAuth, requireClubId } from "../http/auth.js";
@@ -12,6 +17,51 @@ const loginBody = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
+
+const registerBody = z.object({
+  clubSlug: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(1),
+  displayName: z.string().trim().min(2).max(80),
+});
+
+const MIN_PASSWORD_LENGTH = 8;
+
+type SessionClubUser = {
+  id: string;
+  club_id: string;
+  email: string;
+  display_name: string;
+  role: AppRole;
+  slug: string;
+  club_name: string;
+  created_at: Date;
+};
+
+async function issueSession(row: SessionClubUser) {
+  const token = newSessionToken();
+  await query(
+    `INSERT INTO sessions (token, user_id, club_id, expires_at)
+     VALUES ($1, $2, $3, now() + interval '14 days')`,
+    [token, row.id, row.club_id],
+  );
+  return {
+    token,
+    user: {
+      id: row.id,
+      clubId: row.club_id,
+      email: row.email,
+      displayName: row.display_name,
+      role: row.role,
+    },
+    club: {
+      id: row.club_id,
+      slug: row.slug,
+      name: row.club_name,
+      createdAt: row.created_at.toISOString(),
+    },
+  };
+}
 
 export const authRouter = Router();
 
@@ -52,29 +102,78 @@ authRouter.post(
       throw new HttpError(401, "Λάθος στοιχεία", "invalid_credentials");
     }
 
-    const token = newSessionToken();
-    await query(
-      `INSERT INTO sessions (token, user_id, club_id, expires_at)
-       VALUES ($1, $2, $3, now() + interval '14 days')`,
-      [token, row.id, row.club_id],
-    );
+    res.json(await issueSession(row));
+  }),
+);
 
-    res.json({
-      token,
-      user: {
-        id: row.id,
-        clubId: row.club_id,
-        email: row.email,
-        displayName: row.display_name,
-        role: row.role,
-      },
-      club: {
-        id: row.club_id,
-        slug: row.slug,
-        name: row.club_name,
-        createdAt: row.created_at.toISOString(),
-      },
-    });
+authRouter.post(
+  "/auth/register",
+  asyncHandler(async (req, res) => {
+    const body = registerBody.parse(req.body);
+    if (body.password.length < MIN_PASSWORD_LENGTH) {
+      throw new HttpError(400, "Ο κωδικός είναι πολύ μικρός", "password_too_short");
+    }
+
+    const club = await query<{ id: string; slug: string; name: string; created_at: Date }>(
+      "SELECT id, slug, name, created_at FROM clubs WHERE slug = $1",
+      [body.clubSlug],
+    );
+    const clubRow = club.rows[0];
+    if (!clubRow) {
+      throw new HttpError(404, "Δεν βρέθηκε το club", "club_not_found");
+    }
+
+    const email = body.email.toLowerCase();
+    const existing = await query<{ id: string }>(
+      "SELECT id FROM users WHERE club_id = $1 AND email = $2",
+      [clubRow.id, email],
+    );
+    if (existing.rows[0]) {
+      throw new HttpError(409, "Το email χρησιμοποιείται ήδη", "email_taken");
+    }
+
+    const passwordHash = await hashPassword(body.password);
+    const created = await query<{
+      id: string;
+      club_id: string;
+      email: string;
+      display_name: string;
+      role: AppRole;
+    }>(
+      `INSERT INTO users (club_id, email, password_hash, display_name, role)
+       VALUES ($1, $2, $3, $4, 'player')
+       RETURNING id, club_id, email, display_name, role`,
+      [clubRow.id, email, passwordHash, body.displayName],
+    );
+    const userRow = created.rows[0];
+    if (!userRow) {
+      throw new HttpError(500, "Αποτυχία εγγραφής", "internal");
+    }
+
+    const orphan = await findUnlinkedPlayerByEmail(clubRow.id, email);
+    if (orphan) {
+      await linkPlayerToUser(clubRow.id, orphan.id, userRow.id);
+    } else {
+      await createPlayer({
+        clubId: clubRow.id,
+        userId: userRow.id,
+        displayName: body.displayName,
+        phone: null,
+        email,
+        gender: null,
+        birthYear: null,
+        selfLevel: null,
+      });
+    }
+
+    res.status(201).json(
+      await issueSession({
+        ...userRow,
+        slug: clubRow.slug,
+        club_name: clubRow.name,
+        created_at: clubRow.created_at,
+      }),
+    );
   }),
 );
 

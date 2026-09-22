@@ -39,11 +39,14 @@ export type { ClubSettingsInput } from "./settings.js";
 export { settingsClubDaytime, settingsClubEvening } from "./defaults.js";
 export {
   bandForLevel,
+  canAccessDesk,
   canConfirmPlayerLevel,
   canManagePlayers,
   playingLevel,
   snapLevel,
 } from "./levels.js";
+export { nextLevelsAfterMatch } from "./elo.js";
+export type { RatedPlayer } from "./elo.js";
 export { isOpenMatch, isWithinLevelDelta, matchLevel } from "./openMatch.js";
 export {
   PairingError,
@@ -57,6 +60,7 @@ export {
   pairPlayers,
   serializeMatch,
   sortForPairing,
+  swapIncomingForPlayer,
 } from "./pairing.js";
 export type {
   PairingMatch,

@@ -2,6 +2,7 @@ import type { NavigatorScreenParams } from "@react-navigation/native";
 
 export type RootStackParamList = {
   Login: undefined;
+  Register: { clubSlug?: string } | undefined;
   Main: undefined;
 };
 

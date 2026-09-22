@@ -1,74 +1,65 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { apiFetch, getToken } from "@/lib/api";
+import { useTranslation } from "react-i18next";
+import { DeskShell } from "../../components/DeskShell";
+import { apiFetch } from "../../lib/api";
+import { addIsoDays, slotTime, todayIso } from "../../lib/dates";
+import type { DayCourt, DaySlot, DaySlotsResponse, SettingsPayload } from "../../lib/types";
 
-type SlotView = {
-  startsAt: string;
-  durationMinutes: number;
-  booking: { id: string; spots: string[] } | null;
-  waitlist: Array<{ id: string; guestName: string }>;
-};
-
-type CourtView = {
-  id: string;
-  name: string;
-  kind: "indoor" | "outdoor";
-  slots: SlotView[];
-};
-
-function todayIso(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+function slotKind(slot: DaySlot): "maintenance" | "available" | "open" | "full" {
+  if (slot.maintenance) {
+    return "maintenance";
+  }
+  if (!slot.booking) {
+    return "available";
+  }
+  return slot.booking.openSpots > 0 ? "open" : "full";
 }
 
 export default function CalendarPage() {
-  const router = useRouter();
+  const { t } = useTranslation();
   const [date, setDate] = useState(todayIso);
   const [duration, setDuration] = useState<number | null>(null);
   const [templates, setTemplates] = useState<number[]>([]);
-  const [courts, setCourts] = useState<CourtView[]>([]);
+  const [courts, setCourts] = useState<DayCourt[]>([]);
+  const [names, setNames] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [names, setNames] = useState("Γιάννης, Μαρία, Νίκος, Ελένη");
 
   const load = useCallback(async (): Promise<void> => {
-    const settings = await apiFetch<{
-      settings: { defaultSlotDurationMinutes: number; slotTemplates: { durationMinutes: number }[] };
-    }>("/settings");
+    const settings = await apiFetch<SettingsPayload>("/settings");
     const durations = settings.settings.slotTemplates.map((item) => item.durationMinutes);
     setTemplates(durations);
     const used = duration ?? settings.settings.defaultSlotDurationMinutes;
     if (duration === null) {
       setDuration(used);
     }
-    const slots = await apiFetch<{ courts: CourtView[] }>(
-      `/slots?date=${date}&duration=${used}`,
-    );
-    setCourts(slots.courts);
+    const day = await apiFetch<DaySlotsResponse>(`/slots?date=${date}&duration=${used}`);
+    setCourts(day.courts);
   }, [date, duration]);
 
   useEffect(() => {
-    if (!getToken()) {
-      router.replace("/");
-      return;
-    }
-    load().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Αποτυχία ημερολογίου");
+    load().catch((caught: unknown) => {
+      setError(caught instanceof Error ? caught.message : t("errors.load"));
     });
-  }, [load, router]);
+  }, [load, t]);
 
   async function book(courtId: string, startsAt: string, durationMinutes: number): Promise<void> {
     const spots = names
       .split(",")
       .map((name) => name.trim())
       .filter(Boolean)
-      .slice(0, 4);
+      .slice(0, 4)
+      .map((name) => ({ name }));
+    if (spots.length === 0) {
+      setError(t("schedule.names"));
+      return;
+    }
     await apiFetch("/bookings", {
       method: "POST",
       body: JSON.stringify({ courtId, startsAt, durationMinutes, spots }),
     });
+    setNames("");
     await load();
   }
 
@@ -78,96 +69,109 @@ export default function CalendarPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
+    <DeskShell>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm text-court uppercase">Ρεσεψιόν</p>
-          <h1 className="text-3xl font-semibold">Ημερολόγιο</h1>
+          <h1 className="text-3xl font-semibold">{t("schedule.title")}</h1>
+          <p className="mt-2 text-sm text-ink/65">{t("schedule.lead")}</p>
         </div>
-        <Link href="/settings" className="text-sm underline">
-          Ρυθμίσεις club
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className="rounded-lg border border-ink/15 px-3 py-2" onClick={() => setDate(addIsoDays(date, -1))}>
+            ‹
+          </button>
+          <input
+            type="date"
+            className="rounded-lg border border-ink/15 px-3 py-2"
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+          />
+          <button type="button" className="rounded-lg border border-ink/15 px-3 py-2" onClick={() => setDate(addIsoDays(date, 1))}>
+            ›
+          </button>
+          <button type="button" className="text-sm text-court underline" onClick={() => setDate(todayIso())}>
+            {t("common.today")}
+          </button>
+        </div>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <input
-          type="date"
-          className="rounded-lg border border-ink/15 px-3 py-2"
-          value={date}
-          onChange={(event) => setDate(event.target.value)}
-        />
-        <select
-          className="rounded-lg border border-ink/15 px-3 py-2"
-          value={duration ?? ""}
-          onChange={(event) => setDuration(Number(event.target.value))}
-        >
-          {templates.map((item) => (
-            <option key={item} value={item}>
-              {item} λεπτά
-            </option>
-          ))}
-        </select>
+        <label className="text-sm">
+          {t("schedule.duration")}
+          <select
+            className="ml-2 rounded-lg border border-ink/15 px-3 py-2"
+            value={duration ?? ""}
+            onChange={(event) => setDuration(Number(event.target.value))}
+          >
+            {templates.map((item) => (
+              <option key={item} value={item}>
+                {t("common.minutes", { count: item })}
+              </option>
+            ))}
+          </select>
+        </label>
         <input
           className="min-w-64 flex-1 rounded-lg border border-ink/15 px-3 py-2"
           value={names}
           onChange={(event) => setNames(event.target.value)}
-          placeholder="Ονόματα τετράδας"
+          placeholder={t("schedule.names")}
         />
       </div>
       {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
 
-      <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {courts.map((court) => (
           <section key={court.id} className="rounded-2xl bg-white p-4 shadow-sm">
             <h2 className="font-medium">
               {court.name}{" "}
-              <span className="text-sm text-ink/50">
-                {court.kind === "indoor" ? "κλειστό" : "ανοιχτό"}
+              <span className="text-sm text-ink/45">
+                {court.kind === "indoor" ? t("common.indoor") : t("common.outdoor")}
               </span>
             </h2>
             <ul className="mt-3 space-y-2">
-              {court.slots.map((slot) => (
-                <li
-                  key={slot.startsAt}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-ink/10 px-3 py-2 text-sm"
-                >
-                  <span>{slot.startsAt.slice(11, 16)}</span>
-                  {slot.booking ? (
-                    <span className="flex items-center gap-2">
-                      <span className="text-ink/70">{slot.booking.spots.join(", ")}</span>
+              {court.slots.map((slot) => {
+                const kind = slotKind(slot);
+                return (
+                  <li key={slot.startsAt} className="flex items-center justify-between gap-2 rounded-lg border border-ink/10 px-3 py-2 text-sm">
+                    <span className="font-medium">{slotTime(slot.startsAt)}</span>
+                    {kind === "maintenance" ? (
+                      <span className="text-ink/45">{t("schedule.maintenance")}</span>
+                    ) : slot.booking ? (
+                      <span className="flex items-center gap-2">
+                        <span className="text-ink/70">
+                          {slot.booking.spots.map((spot) => spot.name).join(", ") || t(`schedule.${kind}`)}
+                        </span>
+                        <button
+                          type="button"
+                          className="underline"
+                          onClick={() => {
+                            void cancel(slot.booking!.id).catch((caught: unknown) => {
+                              setError(caught instanceof Error ? caught.message : t("errors.internal"));
+                            });
+                          }}
+                        >
+                          {t("common.cancel")}
+                        </button>
+                      </span>
+                    ) : (
                       <button
                         type="button"
-                        className="underline"
+                        className="text-court underline"
                         onClick={() => {
-                          void cancel(slot.booking!.id).catch((err: unknown) => {
-                            setError(err instanceof Error ? err.message : "Ακύρωση απέτυχε");
+                          void book(court.id, slot.startsAt, slot.durationMinutes).catch((caught: unknown) => {
+                            setError(caught instanceof Error ? caught.message : t("errors.internal"));
                           });
                         }}
                       >
-                        Ακύρωση
+                        {t("common.book")}
                       </button>
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      className="text-court underline"
-                      onClick={() => {
-                        void book(court.id, slot.startsAt, slot.durationMinutes).catch(
-                          (err: unknown) => {
-                            setError(err instanceof Error ? err.message : "Κράτηση απέτυχε");
-                          },
-                        );
-                      }}
-                    >
-                      Κράτηση
-                    </button>
-                  )}
-                </li>
-              ))}
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </section>
         ))}
       </div>
-    </main>
+    </DeskShell>
   );
 }

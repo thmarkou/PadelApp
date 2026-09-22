@@ -4,11 +4,9 @@ import { fileURLToPath } from "node:url";
 import { loadPadelEnv } from "../env.js";
 import { getPool } from "./pool.js";
 
-loadPadelEnv();
-
 const migrationsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "migrations");
 
-async function migrate(): Promise<void> {
+export async function applyMigrations(): Promise<void> {
   const pool = getPool();
   await pool.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -43,10 +41,21 @@ async function migrate(): Promise<void> {
     }
   }
 
-  await pool.end();
+  await pool.query(`
+    ALTER TABLE tournament_matches
+      ADD COLUMN IF NOT EXISTS closed BOOLEAN NOT NULL DEFAULT FALSE
+  `);
 }
 
-migrate().catch((error: unknown) => {
-  console.error(error);
-  process.exit(1);
-});
+const isCli = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isCli) {
+  loadPadelEnv();
+  applyMigrations()
+    .then(async () => {
+      await getPool().end();
+    })
+    .catch((error: unknown) => {
+      console.error(error);
+      process.exit(1);
+    });
+}

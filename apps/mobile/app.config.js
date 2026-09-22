@@ -79,6 +79,17 @@ module.exports = {
       supportsTablet: true,
       icon: "./assets/icon.png",
       infoPlist: {
+        UIApplicationSceneManifest: {
+          UIApplicationSupportsMultipleScenes: false,
+          UISceneConfigurations: {
+            UIWindowSceneSessionRoleApplication: [
+              {
+                UISceneConfigurationName: "Default Configuration",
+                UISceneDelegateClassName: "SceneDelegate",
+              },
+            ],
+          },
+        },
         NSAppTransportSecurity: {
           NSAllowsLocalNetworking: true,
           NSAllowsArbitraryLoads: true,

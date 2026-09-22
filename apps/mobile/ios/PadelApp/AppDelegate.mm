@@ -1,4 +1,5 @@
 #import "AppDelegate.h"
+#import "SceneDelegate.h"
 
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTLinkingManager.h>
@@ -12,8 +13,41 @@
   // You can add your custom initial props in the dictionary below.
   // They will be passed down to the ViewController used by React Native.
   self.initialProps = @{};
+  self.launchOptions = launchOptions;
+  // iOS 27 SDK requires a scene-owned window. SceneDelegate creates it.
+  self.automaticallyLoadReactNativeWindow = NO;
 
   return [super application:application didFinishLaunchingWithOptions:launchOptions];
+}
+
+- (UISceneConfiguration *)application:(UIApplication *)application
+configurationForConnectingSceneSession:(UISceneSession *)connectingSceneSession
+                             options:(UISceneConnectionOptions *)options
+{
+  UISceneConfiguration *configuration =
+      [[UISceneConfiguration alloc] initWithName:@"Default Configuration"
+                                    sessionRole:connectingSceneSession.role];
+  configuration.delegateClass = SceneDelegate.class;
+  return configuration;
+}
+
+- (void)startReactNativeInWindowScene:(UIWindowScene *)windowScene
+{
+  if (self.window) {
+    self.window.windowScene = windowScene;
+    return;
+  }
+
+  UIView *rootView = [self.rootViewFactory viewWithModuleName:self.moduleName
+                                            initialProperties:self.initialProps
+                                                launchOptions:self.launchOptions];
+  UIWindow *window = [[UIWindow alloc] initWithWindowScene:windowScene];
+  UIViewController *rootViewController = [self createRootViewController];
+  [self setRootView:rootView toRootViewController:rootViewController];
+  window.windowScene.delegate = self;
+  window.rootViewController = rootViewController;
+  [window makeKeyAndVisible];
+  self.window = window;
 }
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge

@@ -136,6 +136,35 @@ export function fourPlayerOverrides(players: PairingPlayerInput[]): PairingOverr
   ];
 }
 
+export function swapIncomingForPlayer(
+  lastMatches: PairingOverrideMatch[],
+  incomingId: string,
+  replacePlayerId: string,
+): PairingOverrideMatch[] {
+  if (incomingId === replacePlayerId) {
+    throw new PairingError("pairing_invalid_override", "Incoming and sit-out must differ");
+  }
+  let found = false;
+  const next = lastMatches.map((match) => {
+    const swap = (pair: [string, string]): [string, string] => {
+      if (pair[0] === replacePlayerId) {
+        found = true;
+        return [incomingId, pair[1]];
+      }
+      if (pair[1] === replacePlayerId) {
+        found = true;
+        return [pair[0], incomingId];
+      }
+      return [pair[0], pair[1]];
+    };
+    return { pairA: swap(match.pairA), pairB: swap(match.pairB) };
+  });
+  if (!found) {
+    throw new PairingError("pairing_invalid_override", "Sit-out is not in the last round");
+  }
+  return next;
+}
+
 export function applyOverride(
   players: PairingPlayerInput[],
   algorithm: PairingAlgorithm,
@@ -179,7 +208,11 @@ export function applyOverride(
 
 export function pairPlayers(
   players: PairingPlayerInput[],
-  options: { algorithm: PairingAlgorithm; override?: PairingOverrideMatch[] },
+  options: {
+    algorithm: PairingAlgorithm;
+    override?: PairingOverrideMatch[];
+    mustPlayIds?: string[];
+  },
 ): PairingResult {
   if (options.override && options.override.length > 0) {
     return applyOverride(players, options.algorithm, options.override);
@@ -187,12 +220,17 @@ export function pairPlayers(
   if (players.length < 4) {
     throw new PairingError("pairing_need_four", "Need at least four players");
   }
+  const mustPlay = new Set(options.mustPlayIds ?? []);
   const sorted = sortForPairing(players, options.algorithm);
+  const ordered = [
+    ...sorted.filter((player) => mustPlay.has(player.id)),
+    ...sorted.filter((player) => !mustPlay.has(player.id)),
+  ];
   const matches: PairingMatch[] = [];
   let index = 0;
   let court = 0;
-  while (index + 4 <= sorted.length) {
-    matches.push(groupOfFour(sorted.slice(index, index + 4), court));
+  while (index + 4 <= ordered.length) {
+    matches.push(groupOfFour(ordered.slice(index, index + 4), court));
     index += 4;
     court += 1;
   }
@@ -200,7 +238,7 @@ export function pairPlayers(
     algorithm: options.algorithm,
     overridden: false,
     matches,
-    leftover: sorted.slice(index).map((player) => ({ id: player.id, name: player.name })),
+    leftover: ordered.slice(index).map((player) => ({ id: player.id, name: player.name })),
   };
 }
 
@@ -287,10 +325,65 @@ export function pairMixedDoubles(
 
 export function pairForCategory(
   players: PairingPlayerInput[],
-  options: { algorithm: PairingAlgorithm; mixedDoubles: boolean },
+  options: { algorithm: PairingAlgorithm; mixedDoubles: boolean; mustPlayIds?: string[] },
 ): PairingResult {
   if (options.mixedDoubles) {
-    return pairMixedDoubles(players, options.algorithm);
+    return rotateMustPlay(pairMixedDoubles(players, options.algorithm), players, options.mustPlayIds ?? []);
   }
-  return pairPlayers(players, { algorithm: options.algorithm });
+  return pairPlayers(players, { algorithm: options.algorithm, mustPlayIds: options.mustPlayIds });
+}
+
+function rotateMustPlay(
+  result: PairingResult,
+  players: PairingPlayerInput[],
+  mustPlayIds: string[],
+): PairingResult {
+  if (mustPlayIds.length === 0 || result.matches.length === 0) {
+    return result;
+  }
+  const byId = playerMap(players);
+  const leftover = [...result.leftover];
+  const matches = result.matches.map((match) => ({
+    ...match,
+    pairA: { ...match.pairA, playerIds: [...match.pairA.playerIds] as [string, string], names: [...match.pairA.names] as [string, string] },
+    pairB: { ...match.pairB, playerIds: [...match.pairB.playerIds] as [string, string], names: [...match.pairB.names] as [string, string] },
+  }));
+
+  const replaceInMatch = (outgoingId: string, incoming: PairingPlayerInput) => {
+    for (const match of matches) {
+      for (const pair of [match.pairA, match.pairB]) {
+        const slot = pair.playerIds[0] === outgoingId ? 0 : pair.playerIds[1] === outgoingId ? 1 : -1;
+        if (slot === -1) {
+          continue;
+        }
+        pair.playerIds[slot] = incoming.id;
+        pair.names[slot] = incoming.name;
+        const partner = byId.get(pair.playerIds[1 - slot]);
+        pair.sum = pairSum(incoming.level, partner?.level ?? null);
+        return;
+      }
+    }
+  };
+
+  for (const id of mustPlayIds) {
+    const incoming = byId.get(id);
+    const sitting = leftover.findIndex((item) => item.id === id);
+    if (!incoming || sitting === -1) {
+      continue;
+    }
+    const playingIds = matches.flatMap((match) => [...match.pairA.playerIds, ...match.pairB.playerIds]);
+    const outgoing = playingIds
+      .filter((playerId) => !mustPlayIds.includes(playerId))
+      .map((playerId) => byId.get(playerId))
+      .filter((player): player is PairingPlayerInput => Boolean(player))
+      .filter((player) => incoming.gender == null || player.gender === incoming.gender)
+      .sort((left, right) => (left.standingPoints ?? 0) - (right.standingPoints ?? 0))[0];
+    if (!outgoing) {
+      continue;
+    }
+    leftover.splice(sitting, 1, { id: outgoing.id, name: outgoing.name });
+    replaceInMatch(outgoing.id, incoming);
+  }
+
+  return { ...result, matches, leftover };
 }

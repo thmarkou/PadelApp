@@ -1,6 +1,6 @@
-# Εγκατάσταση API στο VPS του club
+# Εγκατάσταση API + desk στο VPS του club
 
-Χωρίς ιστοσελίδα. Το API απαντάει μόνο στην εφαρμογή. Τα δεδομένα στο ΑΦΜ του πελάτη.
+Το API απαντάει στην εφαρμογή και στο desk. Τα δεδομένα στο ΑΦΜ του πελάτη. Δεν είναι εθνικό δίκτυο.
 
 Εμείς το στήνουμε. Ο ιδιοκτήτης δεν ανοίγει Hetzner μόνος του.
 
@@ -18,7 +18,7 @@ Node 20, PostgreSQL 16 (όχι PGlite σε παραγωγή), Caddy ή nginx γ�
 # ως root, συντομία
 apt update && apt install -y git postgresql nginx
 # nvm / node 20
-# clone του repo σε /opt/padelapp (μόνο apps/api + packages/shared)
+# clone του repo σε /opt/padelapp (api + web + packages/shared)
 cp env.padelapp.example .env.padelapp
 ```
 
@@ -43,7 +43,17 @@ npm run start -w @padelapp/api
 
 systemd: `padelapp-api.service` → `npm run start -w @padelapp/api` με `WorkingDirectory=/opt/padelapp`.
 
-Caddy/nginx: `https://api.example-club.gr` → `127.0.0.1:3040`. Δεν σερβίρουμε Next.js / `apps/web`.
+Caddy/nginx:
+
+- `https://api.example-club.gr` → `127.0.0.1:3040` (μόνο JSON)
+- `https://desk.example-club.gr` → desk (`npm run start -w @padelapp/web` ή στατικό export πίσω από τον ίδιο proxy)
+
+`.env.padelapp` στο server, επιπλέον:
+
+```
+PADELAPP_WEB_ORIGIN=https://desk.example-club.gr
+NEXT_PUBLIC_PADELAPP_API_URL=https://api.example-club.gr
+```
 
 Firewall: 22, 80, 443. Η βάση δεν ακούει στο internet.
 

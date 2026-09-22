@@ -4,4 +4,8 @@
 
 @interface AppDelegate : EXAppDelegateWrapper
 
+@property (nonatomic, copy, nullable) NSDictionary *launchOptions;
+
+- (void)startReactNativeInWindowScene:(UIWindowScene *)windowScene;
+
 @end

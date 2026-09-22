@@ -2,7 +2,7 @@
   "name": "padelapp",
   "private": true,
   "version": "0.1.0",
-  "description": "White-label padel club OS — iOS and Android, isolated from other apps",
+  "description": "White-label padel club OS — desk, iPad and phone, isolated from other apps",
   "workspaces": [
     "apps/*",
     "packages/*"

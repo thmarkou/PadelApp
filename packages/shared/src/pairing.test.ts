@@ -5,10 +5,12 @@ import {
   canOverridePairing,
   canProposePairing,
   cyclePairing,
+  pairForCategory,
   pairMixedDoubles,
   pairPlayers,
   serializeMatch,
   sortForPairing,
+  swapIncomingForPlayer,
 } from "./pairing.js";
 
 function p(id: string, level: number | null, standingPoints?: number) {
@@ -58,6 +60,29 @@ test("mexicano without points matches snake", () => {
   assert.equal(serializeMatch(snake.matches[0]!), serializeMatch(mexicano.matches[0]!));
 });
 
+test("desk picks which pair the leftover joins", () => {
+  const last = [{ pairA: ["a", "b"] as [string, string], pairB: ["c", "d"] as [string, string] }];
+  const next = swapIncomingForPlayer(last, "e", "a");
+  assert.deepEqual(next, [{ pairA: ["e", "b"], pairB: ["c", "d"] }]);
+  const result = pairPlayers(
+    [p("a", 3), p("b", 3), p("c", 3), p("d", 3), p("e", 3)],
+    { algorithm: "mexicano", override: next },
+  );
+  assert.deepEqual(result.matches[0]?.pairA.playerIds, ["e", "b"]);
+  assert.deepEqual(result.matches[0]?.pairB.playerIds, ["c", "d"]);
+  assert.deepEqual(result.leftover, [{ id: "a", name: "a" }]);
+});
+
+test("next mexicano round brings last leftover back in", () => {
+  const result = pairPlayers(
+    [p("a", 3, 24), p("b", 3, 24), p("c", 3, 18), p("d", 3, 18), p("e", 3, 0)],
+    { algorithm: "mexicano", mustPlayIds: ["e"] },
+  );
+  const playing = result.matches.flatMap((match) => [...match.pairA.playerIds, ...match.pairB.playerIds]);
+  assert.ok(playing.includes("e"));
+  assert.equal(result.leftover.some((item) => item.id === "e"), false);
+});
+
 test("mexicano uses live standings before rating", () => {
   const result = pairPlayers(
     [p("low", 2, 12), p("mid", 4, 8), p("high", 6, 8), p("sit", 5, 1)],
@@ -104,6 +129,28 @@ test("mixed doubles is man+woman vs man+woman", () => {
     const genders = pair.playerIds.map((id) =>
       id.startsWith("m") ? "male" : "female",
     );
+    assert.ok(genders.includes("male") && genders.includes("female"));
+  }
+});
+
+test("mixed leftover comes back in without breaking man+woman pairs", () => {
+  const result = pairForCategory(
+    [
+      { id: "m1", name: "m1", level: 4, gender: "male", standingPoints: 24 },
+      { id: "m2", name: "m2", level: 4, gender: "male", standingPoints: 18 },
+      { id: "m3", name: "m3", level: 3, gender: "male", standingPoints: 0 },
+      { id: "w1", name: "w1", level: 3, gender: "female", standingPoints: 24 },
+      { id: "w2", name: "w2", level: 3, gender: "female", standingPoints: 18 },
+    ],
+    { algorithm: "mexicano", mixedDoubles: true, mustPlayIds: ["m3"] },
+  );
+  const playing = result.matches.flatMap((match) => [...match.pairA.playerIds, ...match.pairB.playerIds]);
+  assert.ok(playing.includes("m3"));
+  assert.equal(result.leftover.some((item) => item.id === "m3"), false);
+  const match = result.matches[0];
+  assert.ok(match);
+  for (const pair of [match.pairA, match.pairB]) {
+    const genders = pair.playerIds.map((id) => (id.startsWith("m") ? "male" : "female"));
     assert.ok(genders.includes("male") && genders.includes("female"));
   }
 });

@@ -9,15 +9,27 @@ import { courtsRouter } from "./routes/courts.js";
 import { playersRouter } from "./routes/players.js";
 import { settingsRouter } from "./routes/settings.js";
 import { tournamentsRouter } from "./routes/tournaments.js";
+import { applyMigrations } from "./db/migrate.js";
 
 loadPadelEnv();
 
 const app = express();
 const config = apiConfig();
 
+function corsOrigin(): boolean | string[] {
+  const raw = process.env.PADELAPP_WEB_ORIGIN?.trim();
+  if (!raw) {
+    return true;
+  }
+  return raw
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
 app.use(
   cors({
-    origin: true,
+    origin: corsOrigin(),
   }),
 );
 app.use(express.json({ limit: "1mb" }));
@@ -57,6 +69,7 @@ app.use(
   },
 );
 
+await applyMigrations();
 app.listen(config.port, config.host, () => {
   console.log(`PadelApp API http://${config.host}:${config.port}`);
 });

@@ -13,10 +13,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth, isApiError } from "../auth/AuthProvider";
 import { LanguageToggle } from "../components/LanguageToggle";
 import { fetchHealth, fetchPublicClubs, retryApiDiscovery, type PublicClub } from "../lib/api";
 import { apiBaseUrl, defaultApiUrl, setPreferredApiBase } from "../lib/config";
+import type { RootStackParamList } from "../navigation/types";
 import { colors } from "../theme";
 
 const DEV_EMAIL = "owner@club-a.local";
@@ -26,6 +29,7 @@ const API_URL_KEY = "padelapp.apiBase";
 export function LoginScreen() {
   const { t } = useTranslation();
   const { signIn } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [clubs, setClubs] = useState<PublicClub[]>([]);
   const [clubSlug, setClubSlug] = useState("");
   const [email, setEmail] = useState(__DEV__ ? DEV_EMAIL : "");
@@ -181,6 +185,14 @@ export function LoginScreen() {
           ) : (
             <Text style={styles.submitText}>{t("login.submit")}</Text>
           )}
+        </Pressable>
+
+        <Pressable
+          onPress={() => navigation.navigate("Register", { clubSlug: clubSlug.trim() || undefined })}
+          hitSlop={12}
+          style={styles.retryHit}
+        >
+          <Text style={styles.retry}>{t("login.goRegister")}</Text>
         </Pressable>
 
         <Text style={[styles.status, apiUp === false && styles.statusBad]}>

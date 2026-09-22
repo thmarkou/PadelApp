@@ -47,6 +47,7 @@ export function SettingsLevelsScreen() {
           setDraft({ ...draft, levels: { ...draft.levels, eloK: Number(value) || 16 } })
         }
       />
+      <Text style={{ color: colors.muted, lineHeight: 18 }}>{t("settings.levels.eloKHint")}</Text>
       <Text style={{ color: colors.ink, fontWeight: "600" }}>{t("settings.levels.confirmRole")}</Text>
       <ChipWrap>
         {(["coach", "admin"] as const).map((role) => (

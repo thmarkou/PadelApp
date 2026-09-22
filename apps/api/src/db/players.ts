@@ -145,6 +145,37 @@ export async function ensurePlayerForUser(input: {
   return mapPlayer(row);
 }
 
+export async function findUnlinkedPlayerByEmail(
+  clubId: string,
+  email: string,
+): Promise<Player | undefined> {
+  const result = await query<PlayerRow>(
+    `SELECT ${PLAYER_COLUMNS} FROM players
+     WHERE club_id = $1 AND lower(email) = lower($2) AND user_id IS NULL
+     ORDER BY created_at
+     LIMIT 1`,
+    [clubId, email],
+  );
+  const row = result.rows[0];
+  return row ? mapPlayer(row) : undefined;
+}
+
+export async function linkPlayerToUser(
+  clubId: string,
+  playerId: string,
+  userId: string,
+): Promise<Player | undefined> {
+  const result = await query<PlayerRow>(
+    `UPDATE players
+     SET user_id = $3
+     WHERE club_id = $1 AND id = $2 AND user_id IS NULL
+     RETURNING ${PLAYER_COLUMNS}`,
+    [clubId, playerId, userId],
+  );
+  const row = result.rows[0];
+  return row ? mapPlayer(row) : undefined;
+}
+
 export async function createPlayer(input: {
   clubId: string;
   displayName: string;
@@ -153,13 +184,15 @@ export async function createPlayer(input: {
   gender: PlayerGender | null;
   birthYear: number | null;
   selfLevel: number | null;
+  userId?: string | null;
 }): Promise<Player> {
   const created = await query<PlayerRow>(
-    `INSERT INTO players (club_id, display_name, phone, email, gender, birth_year, self_level)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO players (club_id, user_id, display_name, phone, email, gender, birth_year, self_level)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING ${PLAYER_COLUMNS}`,
     [
       input.clubId,
+      input.userId ?? null,
       input.displayName,
       input.phone,
       input.email,

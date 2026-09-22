@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -24,6 +25,8 @@ import { colors } from "../theme";
 
 export function CalendarScreen() {
   const { t } = useTranslation();
+  const { width } = useWindowDimensions();
+  const tablet = width >= 768;
   const { token, settings } = useSignedIn();
   const navigation = useNavigation<NativeStackNavigationProp<CalendarStackParamList>>();
   const templates = settings?.slotTemplates.map((slot) => slot.durationMinutes) ?? [90];
@@ -97,21 +100,24 @@ export function CalendarScreen() {
       ) : day.courts.length === 0 ? (
         <Text style={styles.muted}>{t("calendar.noCourts")}</Text>
       ) : (
-        day.courts.map((court) => (
-          <CourtRow
-            key={court.id}
-            court={court}
-            onPressSlot={(slot) =>
-              navigation.navigate("SlotDetail", {
-                date,
-                courtId: court.id,
-                courtName: court.name,
-                startsAt: slot.startsAt,
-                durationMinutes: duration,
-              })
-            }
-          />
-        ))
+        <View style={tablet ? styles.tabletRow : undefined}>
+          {day.courts.map((court) => (
+            <View key={court.id} style={tablet ? styles.tabletCourt : undefined}>
+              <CourtRow
+                court={court}
+                onPressSlot={(slot) =>
+                  navigation.navigate("SlotDetail", {
+                    date,
+                    courtId: court.id,
+                    courtName: court.name,
+                    startsAt: slot.startsAt,
+                    durationMinutes: duration,
+                  })
+                }
+              />
+            </View>
+          ))}
+        </View>
       )}
     </ScrollView>
   );
@@ -127,7 +133,9 @@ function CourtRow({
   const { t } = useTranslation();
   return (
     <View style={styles.court}>
-      <Text style={styles.courtName}>{court.name}</Text>
+      <Text style={styles.courtName}>
+        {court.name} · {t(`courts.${court.kind}`)}
+      </Text>
       <View style={styles.slots}>
         {court.slots.map((slot) => {
           const status = slotStatus(slot);
@@ -191,6 +199,8 @@ const styles = StyleSheet.create({
   label: { fontWeight: "600", color: colors.ink },
   muted: { color: colors.muted },
   error: { color: colors.danger },
+  tabletRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  tabletCourt: { flex: 1, minWidth: 220 },
   court: { gap: 8 },
   courtName: { fontSize: 16, fontWeight: "600", color: colors.ink },
   slots: { flexDirection: "row", flexWrap: "wrap", gap: 8 },

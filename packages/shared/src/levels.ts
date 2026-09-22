@@ -33,3 +33,8 @@ export function canConfirmPlayerLevel(role: AppRole, confirmRole: ConfirmRole): 
 export function canManagePlayers(role: AppRole): boolean {
   return role === "owner" || role === "reception" || role === "coach";
 }
+
+/** Laptop desk and on-court tablet. Players stay in the mobile app. */
+export function canAccessDesk(role: AppRole): boolean {
+  return canManagePlayers(role);
+}

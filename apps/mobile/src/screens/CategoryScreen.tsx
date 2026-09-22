@@ -8,6 +8,7 @@ import {
   canScoreTournaments,
   fetchCategory,
   fetchMyPlayer,
+  closeMatch,
   generateCategoryRound,
   registerCategoryEntry,
   removeCategoryEntry,
@@ -151,8 +152,30 @@ export function CategoryScreen() {
     }
   }
 
+  async function endMatch(matchId: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await closeMatch(token, matchId);
+      setNote(t("tournaments.matchClosed"));
+      await load();
+    } catch (caught) {
+      setError(isApiError(caught) ? caught.message : t("errors.internal"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const mine = detail?.entries.find((entry) => entry.playerId === myPlayerId);
   const closed = detail?.tournament?.status === "closed";
+  const hasScore = Boolean(
+    detail?.rounds.some((round) =>
+      round.matches.some((match) => match.scoreA !== null && match.scoreB !== null),
+    ),
+  );
+  const entriesLocked = closed || hasScore;
+  const lastRound = detail?.rounds.at(-1);
+  const lastHasClosed = Boolean(lastRound?.matches.some((match) => match.closed));
 
   return (
     <ScrollView
@@ -182,7 +205,7 @@ export function CategoryScreen() {
             {entry.gender ? t(`players.genders.${entry.gender}`) : t("players.genderUnset")}
             {entry.level !== null ? ` · ${entry.level.toFixed(1)}` : ""}
           </Text>
-          {!closed && (manage || entry.playerId === myPlayerId) ? (
+          {!entriesLocked && (manage || entry.playerId === myPlayerId) ? (
             <Pressable onPress={() => void unregister(entry.id)} disabled={busy}>
               <Text style={styles.remove}>{t("tournaments.unregister")}</Text>
             </Pressable>
@@ -190,13 +213,19 @@ export function CategoryScreen() {
         </View>
       ))}
 
-      {!closed && !mine && myPlayerId ? (
+      {!entriesLocked && !mine && myPlayerId ? (
         <Pressable style={styles.primary} onPress={() => void register()} disabled={busy}>
           <Text style={styles.primaryText}>{t("tournaments.registerMe")}</Text>
         </Pressable>
       ) : null}
 
-      {!closed && manage ? (
+      {entriesLocked && !closed ? (
+        <Text style={styles.meta}>{t("tournaments.entriesLocked")}</Text>
+      ) : !closed ? (
+        <Text style={styles.meta}>{t("tournaments.swapHint")}</Text>
+      ) : null}
+
+      {!entriesLocked && manage ? (
         <>
           <TextInput
             value={query}
@@ -227,7 +256,7 @@ export function CategoryScreen() {
         </Text>
       ))}
 
-      {score && !closed ? (
+      {score && !closed && !lastHasClosed ? (
         <Pressable style={styles.primary} onPress={() => void generate()} disabled={busy}>
           <Text style={styles.primaryText}>{t("tournaments.generateRound")}</Text>
         </Pressable>
@@ -241,7 +270,7 @@ export function CategoryScreen() {
               <Text style={styles.name}>
                 {match.pairA.join(" / ") || "—"} vs {match.pairB.join(" / ") || "—"}
               </Text>
-              {score && !closed ? (
+              {score && !closed && !match.closed ? (
                 <View style={styles.scoreRow}>
                   <TextInput
                     value={scores[match.id]?.a ?? ""}
@@ -269,10 +298,16 @@ export function CategoryScreen() {
                   <Pressable onPress={() => void saveScore(match.id)} disabled={busy}>
                     <Text style={styles.saveScore}>{t("tournaments.saveScore")}</Text>
                   </Pressable>
+                  {lastRound?.id === round.id ? (
+                    <Pressable onPress={() => void endMatch(match.id)} disabled={busy}>
+                      <Text style={styles.saveScore}>{t("tournaments.closeMatch")}</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               ) : (
                 <Text style={styles.meta}>
                   {match.scoreA ?? "—"} – {match.scoreB ?? "—"}
+                  {match.closed ? ` · ${t("tournaments.matchClosed")}` : ""}
                 </Text>
               )}
             </View>
