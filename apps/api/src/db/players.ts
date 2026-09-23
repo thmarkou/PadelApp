@@ -89,18 +89,24 @@ export async function resolvePlayer(
   return { id: row.id, displayName: row.display_name };
 }
 
+function foldName(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 export async function searchPlayers(clubId: string, q: string): Promise<Player[]> {
-  const term = q.trim();
   const result = await query<PlayerRow>(
-    term.length === 0
-      ? `SELECT ${PLAYER_COLUMNS} FROM players WHERE club_id = $1
-         ORDER BY display_name LIMIT 80`
-      : `SELECT ${PLAYER_COLUMNS} FROM players
-         WHERE club_id = $1 AND display_name ILIKE $2
-         ORDER BY display_name LIMIT 80`,
-    term.length === 0 ? [clubId] : [clubId, `%${term}%`],
+    `SELECT ${PLAYER_COLUMNS} FROM players WHERE club_id = $1
+     ORDER BY display_name`,
+    [clubId],
   );
-  return result.rows.map(mapPlayer);
+  const players = result.rows.map(mapPlayer);
+  const term = foldName(q);
+  const matched = term.length === 0 ? players : players.filter((player) => foldName(player.displayName).includes(term));
+  return matched.slice(0, 80);
 }
 
 export async function getPlayer(clubId: string, playerId: string): Promise<Player | undefined> {

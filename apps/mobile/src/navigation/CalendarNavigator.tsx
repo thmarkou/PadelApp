@@ -14,9 +14,9 @@ export function CalendarNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: colors.cream },
+        headerStyle: { backgroundColor: colors.night },
         headerShadowVisible: false,
-        headerTintColor: colors.ink,
+        headerTintColor: colors.white,
         contentStyle: { backgroundColor: colors.cream },
       }}
     >
@@ -27,7 +27,7 @@ export function CalendarNavigator() {
           title: t("tabs.calendar"),
           headerRight: () => (
             <Pressable onPress={() => navigation.navigate("OpenMatches")} style={{ paddingHorizontal: 8 }}>
-              <Text style={{ color: colors.green, fontWeight: "600" }}>{t("openMatch.short")}</Text>
+              <Text style={{ color: colors.lime, fontWeight: "600" }}>{t("openMatch.short")}</Text>
             </Pressable>
           ),
         })}

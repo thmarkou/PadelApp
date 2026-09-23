@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { DeskShell } from "../../components/DeskShell";
 import { apiFetch } from "../../lib/api";
 import { todayIso } from "../../lib/dates";
-import type { CourtsPayload, DaySlotsResponse, PlayersPayload, SettingsPayload, TournamentsPayload } from "../../lib/types";
+import type { CourtsPayload, DaySlotsResponse, PlayersPayload, TournamentsPayload } from "../../lib/types";
 
 export default function TodayPage() {
   const { t } = useTranslation();
@@ -22,20 +22,21 @@ export default function TodayPage() {
   useEffect(() => {
     const date = todayIso();
     Promise.all([
-      apiFetch<SettingsPayload>("/settings"),
       apiFetch<CourtsPayload>("/courts"),
       apiFetch<PlayersPayload>("/players"),
       apiFetch<TournamentsPayload>("/tournaments"),
     ])
-      .then(async ([settingsData, courtsData, playersData, tournamentsData]) => {
-        const duration = settingsData.settings.defaultSlotDurationMinutes;
-        const day = await apiFetch<DaySlotsResponse>(`/slots?date=${date}&duration=${duration}`);
-        const booked = day.courts.flatMap((court) => court.slots.filter((slot) => slot.booking));
-        const open = booked.filter((slot) => (slot.booking?.openSpots ?? 0) > 0).length;
-        const total = day.courts.reduce((sum, court) => sum + court.slots.filter((slot) => !slot.maintenance).length, 0);
-        const occupancy = total === 0 ? "—" : `${Math.round((booked.length / total) * 100)}%`;
+      .then(async ([courtsData, playersData, tournamentsData]) => {
+        const day = await apiFetch<DaySlotsResponse>(`/slots?date=${date}`);
+        const cells = day.courts.flatMap((court) => court.slots.filter((slot) => !slot.maintenance));
+        const bookedCells = cells.filter((slot) => slot.booking);
+        const unique = new Map(bookedCells.map((slot) => [slot.booking!.id, slot.booking!]));
+        const open = [...unique.values()].filter(
+          (booking) => booking.spots.length > 0 && booking.spots.length < 4,
+        ).length;
+        const occupancy = cells.length === 0 ? "—" : `${Math.round((bookedCells.length / cells.length) * 100)}%`;
         setStats({
-          bookings: booked.length,
+          bookings: unique.size,
           open,
           players: playersData.players.length,
           courts: courtsData.courts.length,
@@ -50,8 +51,8 @@ export default function TodayPage() {
 
   return (
     <DeskShell>
-      <h1 className="text-3xl font-semibold">{t("dashboard.title")}</h1>
-      <p className="mt-2 text-sm text-ink/65">{t("dashboard.lead")}</p>
+      <h1 className="text-3xl font-semibold tracking-tight">{t("dashboard.title")}</h1>
+      <p className="mt-2 text-sm text-ink/60">{t("dashboard.lead")}</p>
       {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
       {!stats ? (
         <p className="mt-6 text-sm text-ink/55">{t("common.loading")}</p>
@@ -72,9 +73,9 @@ export default function TodayPage() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <li className="rounded-2xl bg-white px-5 py-4 shadow-sm">
-      <p className="text-sm text-ink/55">{label}</p>
-      <p className="mt-1 text-2xl font-semibold">{value}</p>
+    <li className="rounded-3xl border border-ink/10 bg-white px-5 py-5">
+      <p className="text-sm text-ink/50">{label}</p>
+      <p className="mt-1 text-3xl font-semibold tracking-tight">{value}</p>
     </li>
   );
 }

@@ -1,5 +1,7 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useTranslation } from "react-i18next";
+import { useSignedIn } from "../auth/AuthProvider";
+import { canManageTournaments } from "../lib/api";
 import { CategoryScreen } from "../screens/CategoryScreen";
 import { MoreScreen } from "../screens/MoreScreen";
 import { TournamentDetailScreen } from "../screens/TournamentDetailScreen";
@@ -12,12 +14,14 @@ const Stack = createNativeStackNavigator<MoreStackParamList>();
 
 export function MoreNavigator() {
   const { t } = useTranslation();
+  const { user } = useSignedIn();
+  const staff = canManageTournaments(user.role);
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: colors.cream },
+        headerStyle: { backgroundColor: colors.night },
         headerShadowVisible: false,
-        headerTintColor: colors.ink,
+        headerTintColor: colors.white,
         contentStyle: { backgroundColor: colors.cream },
       }}
     >
@@ -27,11 +31,13 @@ export function MoreNavigator() {
         component={TournamentsScreen}
         options={{ title: t("tournaments.title") }}
       />
-      <Stack.Screen
-        name="TournamentForm"
-        component={TournamentFormScreen}
-        options={{ title: t("tournaments.create") }}
-      />
+      {staff ? (
+        <Stack.Screen
+          name="TournamentForm"
+          component={TournamentFormScreen}
+          options={{ title: t("tournaments.create") }}
+        />
+      ) : null}
       <Stack.Screen
         name="TournamentDetail"
         component={TournamentDetailScreen}

@@ -175,14 +175,14 @@ const styles = StyleSheet.create({
   chipTextSelected: { color: colors.white },
   save: {
     marginTop: 8,
-    backgroundColor: colors.green,
-    borderRadius: 12,
-    minHeight: 48,
+    backgroundColor: colors.night,
+    borderRadius: 999,
+    minHeight: 50,
     alignItems: "center",
     justifyContent: "center",
   },
   saveBusy: { opacity: 0.6 },
-  saveText: { color: colors.white, fontSize: 16, fontWeight: "600" },
+  saveText: { color: colors.lime, fontSize: 16, fontWeight: "700" },
   error: { color: colors.danger, fontSize: 14 },
   saved: { color: colors.green, fontSize: 14, fontWeight: "600" },
 });

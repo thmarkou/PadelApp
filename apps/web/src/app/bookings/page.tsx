@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DeskShell } from "../../components/DeskShell";
+import { MonthCalendar } from "../../components/MonthCalendar";
 import { apiFetch } from "../../lib/api";
 import { addIsoDays, slotTime, todayIso } from "../../lib/dates";
-import type { DaySlotsResponse, SettingsPayload } from "../../lib/types";
+import type { DaySlotsResponse } from "../../lib/types";
 
 type Row = {
   id: string;
@@ -21,22 +22,22 @@ export default function BookingsPage() {
   const [date, setDate] = useState(todayIso);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [monthRevision, setMonthRevision] = useState(0);
 
   const load = useCallback(async (): Promise<void> => {
-    const settings = await apiFetch<SettingsPayload>("/settings");
-    const day = await apiFetch<DaySlotsResponse>(
-      `/slots?date=${date}&duration=${settings.settings.defaultSlotDurationMinutes}`,
-    );
+    const day = await apiFetch<DaySlotsResponse>(`/slots?date=${date}`);
+    const seen = new Set<string>();
     const next: Row[] = [];
     for (const court of day.courts) {
       for (const slot of court.slots) {
-        if (!slot.booking) {
+        if (!slot.booking || seen.has(slot.booking.id)) {
           continue;
         }
+        seen.add(slot.booking.id);
         next.push({
           id: slot.booking.id,
           time: slotTime(slot.startsAt),
-          duration: slot.durationMinutes,
+          duration: slot.booking.durationMinutes ?? slot.durationMinutes,
           court: court.name,
           players: slot.booking.spots.map((spot) => spot.name).join(", "),
           openSpots: slot.booking.openSpots,
@@ -55,6 +56,7 @@ export default function BookingsPage() {
   async function cancel(id: string): Promise<void> {
     await apiFetch(`/bookings/${id}/cancel`, { method: "POST" });
     await load();
+    setMonthRevision((current) => current + 1);
   }
 
   return (
@@ -78,6 +80,9 @@ export default function BookingsPage() {
             ›
           </button>
         </div>
+      </div>
+      <div className="mt-6 max-w-md">
+        <MonthCalendar date={date} onSelect={setDate} revision={monthRevision} />
       </div>
       {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
       {!rows ? (
@@ -105,7 +110,13 @@ export default function BookingsPage() {
                   <td className="px-4 py-3">{t("common.minutes", { count: row.duration })}</td>
                   <td className="px-4 py-3">{row.court}</td>
                   <td className="px-4 py-3">{row.players || "—"}</td>
-                  <td className="px-4 py-3">{row.openSpots > 0 ? t("bookings.open") : t("bookings.full")}</td>
+                  <td className="px-4 py-3">
+                    {row.openSpots === 4
+                      ? t("bookings.held")
+                      : row.openSpots > 0
+                        ? t("bookings.open")
+                        : t("bookings.full")}
+                  </td>
                   <td className="px-4 py-3">{t("bookings.confirmed")}</td>
                   <td className="px-4 py-3 text-right">
                     <button

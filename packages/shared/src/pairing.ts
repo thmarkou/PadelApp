@@ -323,12 +323,86 @@ export function pairMixedDoubles(
   };
 }
 
+function partnerKey(left: string, right: string): string {
+  return [left, right].sort().join("+");
+}
+
+function partnerRepeats(matches: PairingMatch[], prior: Set<string>): number {
+  let count = 0;
+  for (const match of matches) {
+    if (prior.has(partnerKey(match.pairA.playerIds[0], match.pairA.playerIds[1]))) {
+      count += 1;
+    }
+    if (prior.has(partnerKey(match.pairB.playerIds[0], match.pairB.playerIds[1]))) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+/** Club Americano: new partners each round when possible. Same leftover rotation as Mexicano. */
+export function pairAmericano(
+  players: PairingPlayerInput[],
+  options: { mustPlayIds?: string[]; priorPartnerPairs?: Array<[string, string]> } = {},
+): PairingResult {
+  if (players.length < 4) {
+    throw new PairingError("pairing_need_four", "Need at least four players");
+  }
+  const mustPlay = new Set(options.mustPlayIds ?? []);
+  const sorted = sortForPairing(players, "snake");
+  const ordered = [
+    ...sorted.filter((player) => mustPlay.has(player.id)),
+    ...sorted.filter((player) => !mustPlay.has(player.id)),
+  ];
+  const playCount = ordered.length - (ordered.length % 4);
+  const active = ordered.slice(0, playCount);
+  const leftover = ordered.slice(playCount);
+  const prior = new Set((options.priorPartnerPairs ?? []).map(([left, right]) => partnerKey(left, right)));
+
+  let bestMatches: PairingMatch[] = [];
+  let bestRepeats = Number.POSITIVE_INFINITY;
+  for (let shift = 0; shift < active.length; shift += 1) {
+    const rotated = [...active.slice(shift), ...active.slice(0, shift)];
+    const matches: PairingMatch[] = [];
+    for (let index = 0; index + 4 <= rotated.length; index += 4) {
+      matches.push(groupOfFour(rotated.slice(index, index + 4), matches.length));
+    }
+    const repeats = partnerRepeats(matches, prior);
+    if (repeats < bestRepeats) {
+      bestRepeats = repeats;
+      bestMatches = matches;
+      if (repeats === 0) {
+        break;
+      }
+    }
+  }
+
+  return {
+    algorithm: "snake",
+    overridden: false,
+    matches: bestMatches,
+    leftover: leftover.map((player) => ({ id: player.id, name: player.name })),
+  };
+}
+
 export function pairForCategory(
   players: PairingPlayerInput[],
-  options: { algorithm: PairingAlgorithm; mixedDoubles: boolean; mustPlayIds?: string[] },
+  options: {
+    algorithm: PairingAlgorithm;
+    mixedDoubles: boolean;
+    mustPlayIds?: string[];
+    americano?: boolean;
+    priorPartnerPairs?: Array<[string, string]>;
+  },
 ): PairingResult {
   if (options.mixedDoubles) {
     return rotateMustPlay(pairMixedDoubles(players, options.algorithm), players, options.mustPlayIds ?? []);
+  }
+  if (options.americano) {
+    return pairAmericano(players, {
+      mustPlayIds: options.mustPlayIds,
+      priorPartnerPairs: options.priorPartnerPairs,
+    });
   }
   return pairPlayers(players, { algorithm: options.algorithm, mustPlayIds: options.mustPlayIds });
 }

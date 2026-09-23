@@ -2,8 +2,11 @@
 
 import {
   eligibleForCategory,
+  kotcCourtKind,
   playerAge,
   playingLevel,
+  splitKotcBench,
+  toggleAvailable,
   type CategoryEligibility,
   type Player,
   type PlayerGender,
@@ -13,6 +16,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { apiFetch } from "../lib/api";
 import type { CategoryDetail, PlayersPayload, TournamentEntry, TournamentMatchView } from "../lib/types";
+import { PlayAvailability } from "./PlayAvailability";
 
 function genderLabel(gender: Player["gender"], t: (key: string) => string): string {
   return gender ? t(`players.${gender}`) : t("players.genderUnknown");
@@ -62,6 +66,36 @@ function sittingOut(detail: CategoryDetail): TournamentEntry[] {
   return detail.entries.filter((entry) => !playing.has(entry.playerId));
 }
 
+function knockoutRoundTitle(
+  matchCount: number,
+  t: (key: string, options?: Record<string, string | number>) => string,
+): string {
+  if (matchCount <= 1) {
+    return t("tournaments.roundFinal");
+  }
+  if (matchCount <= 2) {
+    return t("tournaments.roundSemifinal");
+  }
+  if (matchCount <= 4) {
+    return t("tournaments.roundQuarterfinal");
+  }
+  return t("tournaments.roundOf", { count: matchCount * 2 });
+}
+
+function kotcCourtTitle(
+  index: number,
+  t: (key: string, options?: Record<string, string | number>) => string,
+): string {
+  const kind = kotcCourtKind(index);
+  if (kind === "king") {
+    return t("tournaments.kotcKing");
+  }
+  if (kind === "queen") {
+    return t("tournaments.kotcQueen");
+  }
+  return t("tournaments.kotcCourt", { number: index + 1 });
+}
+
 function pairSlots(match: TournamentMatchView): Array<{ names: string[]; ids: Array<string | null> }> {
   return [
     { names: match.pairA, ids: [match.playerIds.a1, match.playerIds.a2] },
@@ -79,6 +113,8 @@ export function CategoryDesk({ categoryId, closed }: { categoryId: string; close
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [availableAll, setAvailableAll] = useState(true);
+  const [picked, setPicked] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     const loaded = await apiFetch<CategoryDetail>(`/categories/${categoryId}`);
@@ -141,16 +177,54 @@ export function CategoryDesk({ categoryId, closed }: { categoryId: string; close
   );
   const entriesLocked = closed || hasScore;
   const leftover = sittingOut(detail);
-  const incoming = leftover.length === 1 ? leftover[0] : null;
   const lastRound = detail.rounds.at(-1);
   const lastComplete = Boolean(
     lastRound &&
       lastRound.matches.length > 0 &&
-      lastRound.matches.every((match) => match.scoreA !== null && match.scoreB !== null),
+      lastRound.matches.every(
+        (match) => match.bye || (match.scoreA !== null && match.scoreB !== null),
+      ),
   );
   const lastHasClosed = Boolean(lastRound?.matches.some((match) => match.closed));
-  const canOpenRound = !closed && !lastHasClosed && (!lastRound || lastComplete);
+  const knockout = detail.tournament?.format === "knockout";
+  const groupsKo = detail.tournament?.format === "groups_ko";
+  const kotc = detail.tournament?.format === "kotc";
+  const lastIsKo = Boolean(knockout || lastRound?.matches.some((match) => match.stage === "knockout"));
+  const lastMatch = lastRound?.matches[0];
+  const knockoutDone = Boolean(
+    lastIsKo &&
+      lastRound &&
+      lastRound.matches.length === 1 &&
+      lastMatch &&
+      !lastMatch.bye &&
+      lastMatch.scoreA !== null &&
+      lastMatch.scoreB !== null,
+  );
+  const champion =
+    knockoutDone && lastMatch
+      ? (lastMatch.scoreA ?? 0) > (lastMatch.scoreB ?? 0)
+        ? lastMatch.pairA
+        : lastMatch.pairB
+      : null;
+  const canOpenRound = !closed && !lastHasClosed && !knockoutDone && (!lastRound || lastComplete);
   const mixed = detail.category.gender === "mixed_doubles";
+  const socialRotate = !knockout && !groupsKo;
+  const kotcSingleton = kotc
+    ? splitKotcBench(
+        leftover.map((entry) => ({
+          id: entry.playerId,
+          name: entry.displayName,
+          gender: entry.gender,
+        })),
+        mixed,
+      ).singleton
+    : null;
+  const incoming =
+    leftover.length === 1
+      ? leftover[0]
+      : kotcSingleton
+        ? leftover.find((entry) => entry.playerId === kotcSingleton.id) ?? null
+        : null;
 
   async function generateRound(replacePlayerId?: string): Promise<string> {
     const result = await apiFetch<{ leftover: Array<{ name: string }>; round: number }>(
@@ -189,6 +263,11 @@ export function CategoryDesk({ categoryId, closed }: { categoryId: string; close
                 {entry.displayName}
                 {` · ${genderLabel(entry.gender, t)}`}
                 {entry.level !== null ? ` · ${entry.level.toFixed(1)}` : ""}
+                {` · ${
+                  entry.availableAll !== false
+                    ? t("tournaments.availableAllShort")
+                    : t("tournaments.pickedSlots", { count: entry.availableSlotIds?.length ?? 0 })
+                }`}
               </span>
               {!entriesLocked ? (
                 <button
@@ -218,7 +297,19 @@ export function CategoryDesk({ categoryId, closed }: { categoryId: string; close
 
       {!entriesLocked ? (
         <div className="mt-3">
-          <label className="block text-sm">
+          <PlayAvailability
+            slots={detail.playSlots ?? detail.tournament?.playSlots ?? []}
+            availableAll={availableAll}
+            picked={picked}
+            onAvailableAll={(value) => {
+              setAvailableAll(value);
+              if (value) {
+                setPicked([]);
+              }
+            }}
+            onToggle={(slotId) => setPicked((current) => toggleAvailable(current, slotId))}
+          />
+          <label className="mt-3 block text-sm">
             {t("tournaments.addPlayer")}
             <div className="mt-1 flex gap-2">
               <input
@@ -295,7 +386,11 @@ export function CategoryDesk({ categoryId, closed }: { categoryId: string; close
                           void run(async () => {
                             await apiFetch(`/categories/${categoryId}/entries`, {
                               method: "POST",
-                              body: JSON.stringify({ playerId: hit.id }),
+                              body: JSON.stringify({
+                                playerId: hit.id,
+                                availableAll,
+                                availableSlotIds: picked,
+                              }),
                             });
                             setQuery("");
                             setHits([]);
@@ -324,7 +419,11 @@ export function CategoryDesk({ categoryId, closed }: { categoryId: string; close
                                 });
                                 await apiFetch(`/categories/${categoryId}/entries`, {
                                   method: "POST",
-                                  body: JSON.stringify({ playerId: hit.id }),
+                                  body: JSON.stringify({
+                                    playerId: hit.id,
+                                    availableAll,
+                                    availableSlotIds: picked,
+                                  }),
                                 });
                                 setQuery("");
                                 setHits([]);
@@ -353,7 +452,41 @@ export function CategoryDesk({ categoryId, closed }: { categoryId: string; close
         </div>
       ) : null}
 
-      {detail.standings.length > 0 ? (
+      {knockout && !closed ? (
+        <p className="mt-3 text-sm text-ink/55">{t("tournaments.knockoutHint")}</p>
+      ) : null}
+      {groupsKo && !closed ? (
+        <p className="mt-3 text-sm text-ink/55">{t("tournaments.groupsHint")}</p>
+      ) : null}
+      {kotc && !closed ? (
+        <p className="mt-3 text-sm text-ink/55">{t("tournaments.kotcHint")}</p>
+      ) : null}
+      {champion ? (
+        <p className="mt-3 text-sm font-medium text-court">
+          {t("tournaments.champion", { names: champion.join(" / ") })}
+        </p>
+      ) : null}
+
+      {detail.groups && detail.groups.length > 0 ? (
+        <div className="mt-5 space-y-4">
+          {detail.groups.map((group) => (
+            <div key={group.index}>
+              <h3 className="text-sm font-semibold">
+                {t("tournaments.groupLabel", { letter: String.fromCharCode(65 + group.index) })}
+              </h3>
+              <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm">
+                {group.standings.map((row) => (
+                  <li key={row.names.join("-")}>
+                    {row.names.join(" / ")} · {t("tournaments.groupRow", { wins: row.wins, diff: row.diff })}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {!knockout && !groupsKo && detail.standings.length > 0 ? (
         <>
           <h3 className="mt-5 text-sm font-semibold">{t("tournaments.standings")}</h3>
           <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm">
@@ -366,7 +499,7 @@ export function CategoryDesk({ categoryId, closed }: { categoryId: string; close
         </>
       ) : null}
 
-      {canOpenRound && incoming && lastRound ? (
+      {canOpenRound && socialRotate && incoming && lastRound ? (
         <div className="mt-5">
           <p className="text-sm font-medium">{t("tournaments.rotatePick", { name: incoming.displayName })}</p>
           <div className="mt-3 space-y-3">
@@ -415,27 +548,47 @@ export function CategoryDesk({ categoryId, closed }: { categoryId: string; close
             void run(() => generateRound());
           }}
         >
-          {t("tournaments.generateRound")}
+          {groupsKo
+            ? !lastRound
+              ? t("tournaments.openGroups")
+              : !detail.groupStageComplete
+                ? t("tournaments.nextGroupRound")
+                : lastIsKo
+                  ? t("tournaments.nextKoRound")
+                  : t("tournaments.openKnockout")
+            : knockout
+              ? lastRound
+                ? t("tournaments.nextKoRound")
+                : t("tournaments.generateBracket")
+              : t("tournaments.generateRound")}
         </button>
+      ) : knockoutDone && !closed ? (
+        <p className="mt-5 text-sm text-ink/55">{t("tournaments.bracketDone")}</p>
       ) : lastHasClosed && !closed ? (
         <p className="mt-5 text-sm text-ink/55">{t("tournaments.matchClosed")}</p>
       ) : !closed && lastRound ? (
         <p className="mt-5 text-sm text-ink/55">{t("tournaments.waitScore")}</p>
       ) : null}
 
-      {!closed && lastRound && lastRound.matches.length > 1 ? (
+      {socialRotate && !closed && lastRound && lastRound.matches.length > 1 ? (
         <p className="mt-2 text-sm text-ink/55">{t("tournaments.closeWhich")}</p>
-      ) : !closed && detail.rounds.length > 0 ? (
+      ) : socialRotate && !closed && detail.rounds.length > 0 ? (
         <p className="mt-2 text-sm text-ink/55">{t("tournaments.noRoundCap")}</p>
       ) : null}
 
-      {!closed && detail.entries.length >= 5 && !incoming ? (
+      {socialRotate && !closed && detail.entries.length >= 5 && !incoming ? (
         <p className="mt-2 text-sm text-ink/55">{t("tournaments.rotateHint")}</p>
       ) : null}
 
       {detail.rounds.map((round) => (
         <div key={round.id} className="mt-5">
-          <h3 className="text-sm font-semibold">{t("tournaments.round", { number: round.number })}</h3>
+          <h3 className="text-sm font-semibold">
+            {round.matches.some((match) => match.stage === "group")
+              ? t("tournaments.groupDay", { number: round.number })
+              : knockout || lastIsKo
+                ? knockoutRoundTitle(round.matches.length, t)
+                : t("tournaments.round", { number: round.number })}
+          </h3>
           <ul className="mt-2 space-y-3">
             {round.matches.map((match) => {
               const isLast = lastRound?.id === round.id;
@@ -443,9 +596,16 @@ export function CategoryDesk({ categoryId, closed }: { categoryId: string; close
               return (
               <li key={match.id} className="rounded-lg border border-ink/10 px-3 py-3 text-sm">
                 <p className="font-medium">
-                  {match.pairA.join(" / ") || "—"} vs {match.pairB.join(" / ") || "—"}
+                  {kotc ? `${kotcCourtTitle(match.courtIndex, t)} · ` : ""}
+                  {match.groupIndex !== null && match.groupIndex !== undefined
+                    ? `${t("tournaments.groupLabel", { letter: String.fromCharCode(65 + match.groupIndex) })} · `
+                    : ""}
+                  {match.pairA.join(" / ") || "—"} vs{" "}
+                  {match.bye ? t("tournaments.bye") : match.pairB.join(" / ") || "—"}
                 </p>
-                {locked ? (
+                {match.bye ? (
+                  <p className="mt-1 text-ink/55">{t("tournaments.bye")}</p>
+                ) : locked ? (
                   <p className="mt-1 text-ink/70">
                     {match.scoreA ?? "—"} – {match.scoreB ?? "—"}
                     {match.closed ? ` · ${t("tournaments.matchClosed")}` : ""}
@@ -498,7 +658,7 @@ export function CategoryDesk({ categoryId, closed }: { categoryId: string; close
                     >
                       {t("tournaments.saveScore")}
                     </button>
-                    {isLast ? (
+                    {isLast && socialRotate ? (
                       <button
                         type="button"
                         className="rounded-lg border border-ink/15 px-3 py-1 disabled:opacity-60"

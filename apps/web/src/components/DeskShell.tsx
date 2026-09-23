@@ -60,33 +60,37 @@ export function DeskShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-ink/10 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-4">
+      <header className="bg-night text-white">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-5">
           <div>
-            <p className="text-xs tracking-wide text-court uppercase">{t("app.name")}</p>
-            <p className="text-lg font-semibold">{me.club.name}</p>
-            <p className="text-xs text-ink/55">
+            <p className="text-xs font-semibold tracking-[0.18em] text-lime uppercase">{t("app.name")}</p>
+            <p className="mt-1 text-xl font-semibold tracking-tight">{me.club.name}</p>
+            <p className="text-xs text-white/55">
               {me.user.displayName} · {t(`roles.${me.user.role}`)}
             </p>
           </div>
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex items-center gap-1 text-sm">
             <button
               type="button"
-              className={i18n.language.startsWith("el") ? "font-semibold text-court" : "text-ink/60"}
+              className={`rounded-full px-2.5 py-1 ${
+                i18n.language.startsWith("el") ? "bg-white/15 font-semibold text-lime" : "text-white/55"
+              }`}
               onClick={() => persistLanguage("el")}
             >
               {t("language.el")}
             </button>
             <button
               type="button"
-              className={i18n.language.startsWith("en") ? "font-semibold text-court" : "text-ink/60"}
+              className={`rounded-full px-2.5 py-1 ${
+                i18n.language.startsWith("en") ? "bg-white/15 font-semibold text-lime" : "text-white/55"
+              }`}
               onClick={() => persistLanguage("en")}
             >
               {t("language.en")}
             </button>
             <button
               type="button"
-              className="text-ink/70 underline"
+              className="ml-2 rounded-full px-3 py-1 text-white/70 hover:bg-white/10 hover:text-white"
               onClick={() => {
                 clearToken();
                 router.push("/");
@@ -96,15 +100,15 @@ export function DeskShell({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </div>
-        <nav className="mx-auto flex max-w-6xl flex-wrap gap-1 px-6 pb-3">
+        <nav className="mx-auto flex max-w-6xl flex-wrap gap-1.5 px-6 pb-4">
           {links.map((link) => {
             const active = pathname === link.href;
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`rounded-full px-3 py-1.5 text-sm ${
-                  active ? "bg-court text-white" : "text-ink/70 hover:bg-ink/5"
+                className={`rounded-full px-3.5 py-1.5 text-sm transition-colors ${
+                  active ? "bg-lime text-night font-semibold" : "text-white/70 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 {t(link.key)}

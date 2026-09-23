@@ -1,13 +1,19 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Geist", "Segoe UI", sans-serif;
-  --color-court: #1f6b4a;
-  --color-ink: #14231c;
-  --color-paper: #f4f1ea;
+  --font-sans: var(--font-manrope), "Segoe UI", sans-serif;
+  --color-court: #0f8a58;
+  --color-night: #06241b;
+  --color-lime: #c6f24a;
+  --color-ink: #071610;
+  --color-paper: #e7f0ea;
+  --color-mist: #c9d8ce;
 }
 
 body {
-  background: var(--color-paper);
+  background:
+    radial-gradient(1100px 420px at 8% -8%, rgb(198 242 74 / 0.22), transparent 52%),
+    radial-gradient(800px 360px at 100% 0%, rgb(15 138 88 / 0.14), transparent 48%),
+    var(--color-paper);
   color: var(--color-ink);
 }

@@ -3,7 +3,12 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text } from "react-n
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTranslation } from "react-i18next";
-import { tournamentStatuses, type Tournament, type TournamentCategory } from "@padelapp/shared";
+import {
+  groupSlotsByDate,
+  tournamentStatuses,
+  type Tournament,
+  type TournamentCategory,
+} from "@padelapp/shared";
 import { isApiError, useSignedIn } from "../auth/AuthProvider";
 import { Chip, ChipWrap } from "../components/forms";
 import { canManageTournaments, fetchTournament, setTournamentStatus } from "../lib/api";
@@ -70,6 +75,16 @@ export function TournamentDetailScreen() {
             {tournament.startsOn} · {t(`settings.format.${tournament.format}`)}
           </Text>
           <Text style={styles.meta}>{t(`tournaments.status.${tournament.status}`)}</Text>
+          {tournament.playSlots && tournament.playSlots.length > 0 ? (
+            <>
+              <Text style={styles.section}>{t("tournaments.playDays")}</Text>
+              {groupSlotsByDate(tournament.playSlots).map((group) => (
+                <Text key={group.date} style={styles.meta}>
+                  {group.date}: {group.slots.map((slot) => `${slot.start}–${slot.end}`).join(" · ")}
+                </Text>
+              ))}
+            </>
+          ) : null}
           {staff ? (
             <>
               <Text style={styles.section}>{t("tournaments.changeStatus")}</Text>
@@ -103,6 +118,9 @@ export function TournamentDetailScreen() {
             {t(`tournaments.genders.${category.gender}`)}
             {category.minAge !== null || category.maxAge !== null
               ? ` · ${category.minAge ?? "—"}–${category.maxAge ?? "—"}`
+              : ""}
+            {category.minLevel !== null || category.maxLevel !== null
+              ? ` · ${category.minLevel ?? "—"}–${category.maxLevel ?? "—"}`
               : ""}
             {category.entryCount !== undefined
               ? ` · ${t("tournaments.entriesCount", { count: category.entryCount })}`

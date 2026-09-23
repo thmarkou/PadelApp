@@ -23,3 +23,13 @@ export function slotDateLabel(startsAt: string): string {
   const match = startsAt.match(/^(\d{4}-\d{2}-\d{2})/);
   return match?.[1] ?? startsAt;
 }
+
+export function formatDayHeading(isoDate: string, locale: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const tag = locale.startsWith("el") ? "el-GR" : "en-GB";
+  return new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1).toLocaleDateString(tag, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}

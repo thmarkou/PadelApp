@@ -1,6 +1,6 @@
 "use client";
 
-import type { TournamentStatus } from "@padelapp/shared";
+import { groupSlotsByDate, type TournamentStatus } from "@padelapp/shared";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -60,6 +60,16 @@ export default function TournamentDeskPage() {
             {data.tournament.startsOn} · {data.tournament.format} ·{" "}
             {t(`tournaments.statuses.${data.tournament.status}`)}
           </p>
+          {data.tournament.playSlots && data.tournament.playSlots.length > 0 ? (
+            <div className="mt-3 space-y-1 text-sm text-ink/65">
+              <p className="font-medium">{t("tournaments.playDays")}</p>
+              {groupSlotsByDate(data.tournament.playSlots).map((group) => (
+                <p key={group.date}>
+                  {group.date}: {group.slots.map((slot) => `${slot.start}–${slot.end}`).join(" · ")}
+                </p>
+              ))}
+            </div>
+          ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
             {STATUSES.map((status) => (
               <button

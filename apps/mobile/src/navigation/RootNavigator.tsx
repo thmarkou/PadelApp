@@ -37,7 +37,7 @@ const navTheme = {
   colors: {
     ...DefaultTheme.colors,
     background: colors.cream,
-    card: colors.cream,
+    card: colors.white,
     text: colors.ink,
     border: colors.line,
     primary: colors.green,
@@ -53,12 +53,19 @@ function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        headerStyle: { backgroundColor: colors.cream },
+        headerStyle: { backgroundColor: colors.night },
         headerShadowVisible: false,
-        headerTintColor: colors.ink,
+        headerTintColor: colors.white,
+        headerTitleStyle: { fontWeight: "600" },
         tabBarActiveTintColor: colors.green,
         tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: { backgroundColor: colors.cream, borderTopColor: colors.line },
+        tabBarStyle: {
+          backgroundColor: colors.white,
+          borderTopColor: colors.line,
+          height: 64,
+          paddingTop: 6,
+        },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
         tabBarIcon: ({ focused, color, size }) => {
           const icons = TAB_ICONS[route.name];
           return <Ionicons name={focused ? icons.on : icons.off} size={size} color={color} />;

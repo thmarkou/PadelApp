@@ -31,9 +31,9 @@ const clubs: SeedClub[] = [
     name: "Club A Evening",
     settings: settingsClubEvening("Club A Evening"),
     courts: [
-      { name: "Γήπεδο 1", kind: "indoor", openTime: "08:00", closeTime: "23:00" },
-      { name: "Γήπεδο 2", kind: "indoor", openTime: "08:00", closeTime: "23:00" },
-      { name: "Γήπεδο 3", kind: "outdoor", openTime: "09:00", closeTime: "21:00" },
+      { name: "Γήπεδο 1", kind: "indoor", openTime: "09:30", closeTime: "23:00" },
+      { name: "Γήπεδο 2", kind: "indoor", openTime: "09:30", closeTime: "23:00" },
+      { name: "Γήπεδο 3", kind: "outdoor", openTime: "09:30", closeTime: "23:00" },
     ],
   },
   {
@@ -196,6 +196,14 @@ async function seed(): Promise<void> {
           `INSERT INTO courts (club_id, name, kind, open_time, close_time, sort_order)
            VALUES ($1, $2, $3, $4, $5, $6)`,
           [clubId, court.name, court.kind, court.openTime, court.closeTime, index],
+        );
+      }
+    } else if (club.slug === "club-a") {
+      for (const [index, court] of club.courts.entries()) {
+        await pool.query(
+          `UPDATE courts SET open_time = $3, close_time = $4, sort_order = $5
+           WHERE club_id = $1 AND name = $2`,
+          [clubId, court.name, court.openTime, court.closeTime, index],
         );
       }
     }

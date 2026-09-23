@@ -15,7 +15,7 @@ export function CourtForm({ courtId }: { courtId?: string }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [kind, setKind] = useState<CourtKind>("outdoor");
-  const [openTime, setOpenTime] = useState("08:00");
+  const [openTime, setOpenTime] = useState("09:30");
   const [closeTime, setCloseTime] = useState("23:00");
   const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState<string | null>(null);

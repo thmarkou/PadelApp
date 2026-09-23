@@ -20,9 +20,9 @@ export function SettingsNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: colors.cream },
+        headerStyle: { backgroundColor: colors.night },
         headerShadowVisible: false,
-        headerTintColor: colors.ink,
+        headerTintColor: colors.white,
         contentStyle: { backgroundColor: colors.cream },
       }}
     >

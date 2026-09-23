@@ -2,7 +2,13 @@ import { useCallback, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect, useRoute, type RouteProp } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
+import {
+  groupSlotsByDate,
+  MAX_TOURNAMENT_AVAILABLE_SLOTS,
+  toggleAvailable,
+} from "@padelapp/shared";
 import { isApiError, useSignedIn } from "../auth/AuthProvider";
+import { ToggleRow } from "../components/forms";
 import {
   canManageTournaments,
   canScoreTournaments,
@@ -35,6 +41,8 @@ export function CategoryScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [availableAll, setAvailableAll] = useState(true);
+  const [picked, setPicked] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -84,7 +92,10 @@ export function CategoryScreen() {
     setError(null);
     setNote(null);
     try {
-      await registerCategoryEntry(token, route.params.categoryId, playerId);
+      await registerCategoryEntry(token, route.params.categoryId, playerId, {
+        availableAll,
+        availableSlotIds: picked,
+      });
       setQuery("");
       setHits([]);
       setNote(t("tournaments.registered"));
@@ -176,6 +187,33 @@ export function CategoryScreen() {
   const entriesLocked = closed || hasScore;
   const lastRound = detail?.rounds.at(-1);
   const lastHasClosed = Boolean(lastRound?.matches.some((match) => match.closed));
+  const knockout = detail?.tournament?.format === "knockout";
+  const groupsKo = detail?.tournament?.format === "groups_ko";
+  const lastIsKo = Boolean(knockout || lastRound?.matches.some((match) => match.stage === "knockout"));
+  const lastComplete = Boolean(
+    lastRound &&
+      lastRound.matches.length > 0 &&
+      lastRound.matches.every(
+        (match) => match.bye || (match.scoreA !== null && match.scoreB !== null),
+      ),
+  );
+  const lastMatch = lastRound?.matches[0];
+  const knockoutDone = Boolean(
+    lastIsKo &&
+      lastRound &&
+      lastRound.matches.length === 1 &&
+      lastMatch &&
+      !lastMatch.bye &&
+      lastMatch.scoreA !== null &&
+      lastMatch.scoreB !== null,
+  );
+  const champion =
+    knockoutDone && lastMatch
+      ? (lastMatch.scoreA ?? 0) > (lastMatch.scoreB ?? 0)
+        ? lastMatch.pairA
+        : lastMatch.pairB
+      : null;
+  const canOpenRound = score && !closed && !lastHasClosed && !knockoutDone && (!lastRound || lastComplete);
 
   return (
     <ScrollView
@@ -204,6 +242,11 @@ export function CategoryScreen() {
           <Text style={styles.meta}>
             {entry.gender ? t(`players.genders.${entry.gender}`) : t("players.genderUnset")}
             {entry.level !== null ? ` · ${entry.level.toFixed(1)}` : ""}
+            {` · ${
+              entry.availableAll !== false
+                ? t("tournaments.availableAllShort")
+                : t("tournaments.pickedSlots", { count: entry.availableSlotIds?.length ?? 0 })
+            }`}
           </Text>
           {!entriesLocked && (manage || entry.playerId === myPlayerId) ? (
             <Pressable onPress={() => void unregister(entry.id)} disabled={busy}>
@@ -212,6 +255,50 @@ export function CategoryScreen() {
           ) : null}
         </View>
       ))}
+
+      {!entriesLocked && (detail?.playSlots ?? detail?.tournament?.playSlots ?? []).length > 0 ? (
+        <View style={styles.card}>
+          <ToggleRow
+            label={t("tournaments.availableAll")}
+            hint={t("tournaments.availableHint")}
+            value={availableAll}
+            onValueChange={(value) => {
+              setAvailableAll(value);
+              if (value) {
+                setPicked([]);
+              }
+            }}
+          />
+          <Text style={styles.meta}>
+            {t("tournaments.availableCount", {
+              count: picked.length,
+              max: MAX_TOURNAMENT_AVAILABLE_SLOTS,
+            })}
+          </Text>
+          {groupSlotsByDate(detail?.playSlots ?? detail?.tournament?.playSlots ?? []).map((group) => (
+            <View key={group.date}>
+              <Text style={styles.name}>{group.date}</Text>
+              <View style={styles.slotWrap}>
+                {group.slots.map((slot) => {
+                  const on = picked.includes(slot.id);
+                  return (
+                    <Pressable
+                      key={slot.id}
+                      disabled={availableAll}
+                      onPress={() => setPicked((current) => toggleAvailable(current, slot.id))}
+                      style={[styles.slot, on ? styles.slotOn : null, availableAll ? styles.slotOff : null]}
+                    >
+                      <Text style={[styles.slotText, on ? styles.slotTextOn : null]}>
+                        {slot.start}–{slot.end}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       {!entriesLocked && !mine && myPlayerId ? (
         <Pressable style={styles.primary} onPress={() => void register()} disabled={busy}>
@@ -249,28 +336,89 @@ export function CategoryScreen() {
         </>
       ) : null}
 
-      <Text style={styles.section}>{t("tournaments.standings")}</Text>
-      {detail?.standings.map((row, index) => (
-        <Text key={row.playerId} style={styles.standing}>
-          {index + 1}. {row.name} · {row.points} · {t("tournaments.wins", { count: row.wins })}
-        </Text>
+      {champion ? (
+        <Text style={styles.note}>{t("tournaments.champion", { names: champion.join(" / ") })}</Text>
+      ) : null}
+      {groupsKo && !closed ? <Text style={styles.meta}>{t("tournaments.groupsHint")}</Text> : null}
+      {detail?.tournament?.format === "kotc" && !closed ? (
+        <Text style={styles.meta}>{t("tournaments.kotcHint")}</Text>
+      ) : null}
+      {detail?.groups?.map((group) => (
+        <View key={group.index}>
+          <Text style={styles.section}>
+            {t("tournaments.groupLabel", { letter: String.fromCharCode(65 + group.index) })}
+          </Text>
+          {group.standings.map((row) => (
+            <Text key={row.names.join("-")} style={styles.standing}>
+              {row.names.join(" / ")} · {t("tournaments.groupRow", { wins: row.wins, diff: row.diff })}
+            </Text>
+          ))}
+        </View>
       ))}
+      {!knockout && !groupsKo ? <Text style={styles.section}>{t("tournaments.standings")}</Text> : null}
+      {!knockout && !groupsKo
+        ? detail?.standings.map((row, index) => (
+            <Text key={row.playerId} style={styles.standing}>
+              {index + 1}. {row.name} · {row.points} · {t("tournaments.wins", { count: row.wins })}
+            </Text>
+          ))
+        : null}
 
-      {score && !closed && !lastHasClosed ? (
+      {canOpenRound ? (
         <Pressable style={styles.primary} onPress={() => void generate()} disabled={busy}>
-          <Text style={styles.primaryText}>{t("tournaments.generateRound")}</Text>
+          <Text style={styles.primaryText}>
+            {groupsKo
+              ? !lastRound
+                ? t("tournaments.openGroups")
+                : !detail?.groupStageComplete
+                  ? t("tournaments.nextGroupRound")
+                  : lastIsKo
+                    ? t("tournaments.nextKoRound")
+                    : t("tournaments.openKnockout")
+              : knockout
+                ? lastRound
+                  ? t("tournaments.nextKoRound")
+                  : t("tournaments.generateBracket")
+                : t("tournaments.generateRound")}
+          </Text>
         </Pressable>
+      ) : knockoutDone ? (
+        <Text style={styles.meta}>{t("tournaments.bracketDone")}</Text>
       ) : null}
 
       {detail?.rounds.map((round) => (
         <View key={round.id} style={styles.round}>
-          <Text style={styles.section}>{t("tournaments.round", { number: round.number })}</Text>
+          <Text style={styles.section}>
+            {round.matches.some((match) => match.stage === "group")
+              ? t("tournaments.groupDay", { number: round.number })
+              : knockout || lastIsKo
+                ? round.matches.length <= 1
+                  ? t("tournaments.roundFinal")
+                  : round.matches.length <= 2
+                    ? t("tournaments.roundSemifinal")
+                    : round.matches.length <= 4
+                      ? t("tournaments.roundQuarterfinal")
+                      : t("tournaments.roundOf", { count: round.matches.length * 2 })
+                : t("tournaments.round", { number: round.number })}
+          </Text>
           {round.matches.map((match) => (
             <View key={match.id} style={styles.card}>
               <Text style={styles.name}>
-                {match.pairA.join(" / ") || "—"} vs {match.pairB.join(" / ") || "—"}
+                {detail?.tournament?.format === "kotc"
+                  ? `${
+                      match.courtIndex === 0
+                        ? t("tournaments.kotcKing")
+                        : match.courtIndex === 1
+                          ? t("tournaments.kotcQueen")
+                          : t("tournaments.kotcCourt", { number: match.courtIndex + 1 })
+                    } · `
+                  : ""}
+                {match.pairA.join(" / ") || "—"} vs{" "}
+                {match.bye ? t("tournaments.bye") : match.pairB.join(" / ") || "—"}
               </Text>
-              {score && !closed && !match.closed ? (
+              {match.bye ? (
+                <Text style={styles.meta}>{t("tournaments.bye")}</Text>
+              ) : score && !closed && !match.closed ? (
                 <View style={styles.scoreRow}>
                   <TextInput
                     value={scores[match.id]?.a ?? ""}
@@ -298,7 +446,7 @@ export function CategoryScreen() {
                   <Pressable onPress={() => void saveScore(match.id)} disabled={busy}>
                     <Text style={styles.saveScore}>{t("tournaments.saveScore")}</Text>
                   </Pressable>
-                  {lastRound?.id === round.id ? (
+                  {lastRound?.id === round.id && !knockout ? (
                     <Pressable onPress={() => void endMatch(match.id)} disabled={busy}>
                       <Text style={styles.saveScore}>{t("tournaments.closeMatch")}</Text>
                     </Pressable>
@@ -376,4 +524,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
   },
   saveScore: { color: colors.green, fontWeight: "600", fontSize: 15 },
+  slotWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
+  slot: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: colors.white,
+  },
+  slotOn: { borderColor: colors.green, backgroundColor: colors.green },
+  slotOff: { opacity: 0.4 },
+  slotText: { color: colors.ink, fontSize: 13, fontWeight: "600" },
+  slotTextOn: { color: colors.white },
 });

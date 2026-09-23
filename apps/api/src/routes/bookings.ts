@@ -1,9 +1,11 @@
 import {
+  bookingFitsDay,
   canManagePlayers,
   canOverridePairing,
   canProposePairing,
   cyclePairing,
   generateDaySlots,
+  monthRange,
   isOpenMatch,
   isWithinLevelDelta,
   matchLevel,
@@ -11,6 +13,7 @@ import {
   PairingError,
   parseClubSettings,
   playingLevel,
+  rangesOverlap,
   type PairingResult,
 } from "@padelapp/shared";
 import { Router } from "express";
@@ -27,11 +30,20 @@ function slotKey(value: string): string {
   return match ? `${match[1]}T${match[2]}` : value;
 }
 
-function clubSlotKey(value: string, timeZone: string): string {
-  const normalized = value.includes("T") ? value : value.replace(" ", "T");
-  const date = new Date(normalized);
+/** PG `timestamptz::text` uses `+00`; ECMAScript needs `+00:00`. */
+function parseDbInstant(value: string | Date): Date {
+  if (value instanceof Date) {
+    return value;
+  }
+  let normalized = value.includes("T") ? value : value.replace(" ", "T");
+  normalized = normalized.replace(/([+-]\d{2})$/, "$1:00");
+  return new Date(normalized);
+}
+
+function clubSlotKey(value: string | Date, timeZone: string): string {
+  const date = parseDbInstant(value);
   if (Number.isNaN(date.getTime())) {
-    return slotKey(value);
+    return slotKey(typeof value === "string" ? value : value.toISOString());
   }
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone,
@@ -164,15 +176,8 @@ bookingsRouter.get(
   asyncHandler(async (req, res) => {
     const clubId = requireClubId(req);
     const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(req.query.date);
-    const durationOverride = req.query.duration
-      ? z.coerce.number().int().min(15).max(240).parse(req.query.duration)
-      : undefined;
-
     const settings = await clubSettings(clubId);
-    const duration = durationOverride ?? settings.defaultSlotDurationMinutes;
-    if (!settings.slotTemplates.some((template) => template.durationMinutes === duration)) {
-      throw new HttpError(400, "Αυτή η διάρκεια σλοτ δεν επιτρέπεται στο club", "slot_duration_not_allowed");
-    }
+    const duration = settings.defaultSlotDurationMinutes;
 
     const courts = await query<{
       id: string;
@@ -241,8 +246,6 @@ bookingsRouter.get(
           date,
           openTime: court.open_time,
           closeTime: court.close_time,
-          durationMinutes: duration,
-          bufferMinutes: settings.slotBufferMinutes,
         });
         return {
           id: court.id,
@@ -263,7 +266,12 @@ bookingsRouter.get(
             const booking = bookings.rows.find(
               (row) =>
                 row.court_id === court.id &&
-                clubSlotKey(row.starts_at, settings.timezone) === slotKey(slot.startsAt),
+                rangesOverlap(
+                  slot.startsAt,
+                  slot.durationMinutes,
+                  clubSlotKey(row.starts_at, settings.timezone),
+                  row.duration_minutes,
+                ),
             );
             const bookingSpots = booking
               ? spots.rows
@@ -305,6 +313,7 @@ bookingsRouter.get(
                     createdBy: booking.created_by,
                     mine,
                     meOnBooking,
+                    durationMinutes: booking.duration_minutes,
                     spots: bookingSpots,
                     openSpots: Math.max(0, 4 - bookingSpots.length),
                     pairing: readPairing(booking.pairing),
@@ -316,6 +325,39 @@ bookingsRouter.get(
           }),
         };
       }),
+    });
+  }),
+);
+
+bookingsRouter.get(
+  "/slots/month",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const clubId = requireClubId(req);
+    const month = z.string().regex(/^\d{4}-\d{2}$/).parse(req.query.month);
+    const { start, end } = monthRange(month);
+    const rows = await query<{ date: string; bookings: string | number; ready: string | number }>(
+      `SELECT date, count(*)::int AS bookings,
+              count(*) FILTER (WHERE spots >= 4)::int AS ready
+       FROM (
+         SELECT b.starts_at::date::text AS date,
+                (SELECT count(*) FROM booking_spots s WHERE s.booking_id = b.id) AS spots
+         FROM bookings b
+         WHERE b.club_id = $1 AND b.status = 'confirmed'
+           AND b.starts_at::date >= $2::date
+           AND b.starts_at::date <= $3::date
+       ) counted
+       GROUP BY date
+       ORDER BY date`,
+      [clubId, start, end],
+    );
+    res.json({
+      month,
+      days: rows.rows.map((row) => ({
+        date: String(row.date).slice(0, 10),
+        bookings: Number(row.bookings),
+        ready: Number(row.ready),
+      })),
     });
   }),
 );
@@ -428,20 +470,37 @@ bookingsRouter.post(
         courtId: z.string().uuid(),
         startsAt: z.string().min(1),
         durationMinutes: z.number().int().min(15).max(240),
-        spots: z.array(spotInput).min(1).max(4),
+        spots: z.array(spotInput).max(4).default([]),
       })
       .parse(req.body);
     const settings = await clubSettings(clubId);
     if (!settings.slotTemplates.some((template) => template.durationMinutes === body.durationMinutes)) {
       throw new HttpError(400, "Αυτή η διάρκεια σλοτ δεν επιτρέπεται στο club", "slot_duration_not_allowed");
     }
+    if (body.spots.length === 0 && !isDesk(req.auth?.role)) {
+      throw new HttpError(400, "Χρειάζεται τουλάχιστον ένας παίκτης", "spots_required");
+    }
 
-    const court = await query<{ id: string }>(
-      "SELECT id FROM courts WHERE id = $1 AND club_id = $2 AND is_active = true",
+    const court = await query<{ id: string; open_time: string; close_time: string }>(
+      `SELECT id, open_time::text, close_time::text
+       FROM courts WHERE id = $1 AND club_id = $2 AND is_active = true`,
       [body.courtId, clubId],
     );
-    if (!court.rows[0]) {
+    const courtRow = court.rows[0];
+    if (!courtRow) {
       throw new HttpError(404, "Δεν βρέθηκε το γήπεδο", "court_not_found");
+    }
+    const date = body.startsAt.slice(0, 10);
+    const onGrid = generateDaySlots({
+      date,
+      openTime: courtRow.open_time,
+      closeTime: courtRow.close_time,
+    }).some((slot) => slotKey(slot.startsAt) === slotKey(body.startsAt));
+    if (!onGrid) {
+      throw new HttpError(400, "Η ώρα δεν είναι στο πρόγραμμα 09:30–23:00 / 30′", "slot_not_on_grid");
+    }
+    if (!bookingFitsDay(body.startsAt, body.durationMinutes, courtRow.close_time)) {
+      throw new HttpError(400, "Το ματς τελειώνει μετά το κλείσιμο", "booking_past_close");
     }
 
     await assertNoClash(clubId, body.courtId, body.startsAt, body.durationMinutes);
@@ -487,6 +546,9 @@ bookingsRouter.post(
     const existing = await spotsForBookings(auth.clubId, [req.params.bookingId]);
     if (existing.length >= 4) {
       throw new HttpError(409, "Η τετράδα είναι γεμάτη", "booking_full");
+    }
+    if (existing.length === 0 && !canManagePlayers(auth.role) && !isDesk(auth.role)) {
+      throw new HttpError(403, "Η κράτηση δεν έχει τετράδα ακόμα", "booking_held");
     }
     const player = await resolvePlayer(auth.clubId, body);
     if (existing.some((row) => row.guest_name.toLowerCase() === player.displayName.toLowerCase())) {

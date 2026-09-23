@@ -90,9 +90,11 @@ export function LoginScreen() {
     >
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <LanguageToggle />
-        <Text style={styles.kicker}>{t("login.kicker")}</Text>
-        <Text style={styles.title}>{t("login.title")}</Text>
-        <Text style={styles.subtitle}>{t("login.subtitle")}</Text>
+        <View style={styles.hero}>
+          <Text style={styles.kicker}>{t("login.kicker")}</Text>
+          <Text style={styles.title}>{t("login.title")}</Text>
+          <Text style={styles.subtitle}>{t("login.subtitle")}</Text>
+        </View>
         <Text style={styles.memberHint}>{t("login.memberHint")}</Text>
 
         <Pressable
@@ -228,26 +230,33 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.cream },
   content: {
-    padding: 28,
-    paddingTop: 24,
+    padding: 20,
+    paddingTop: 16,
     gap: 10,
   },
+  hero: {
+    backgroundColor: colors.night,
+    borderRadius: 24,
+    padding: 20,
+    gap: 8,
+    marginBottom: 4,
+  },
   kicker: {
-    marginTop: 20,
-    color: colors.green,
-    fontSize: 13,
-    letterSpacing: 1.4,
+    color: colors.lime,
+    fontSize: 12,
+    letterSpacing: 1.6,
     textTransform: "uppercase",
+    fontWeight: "700",
   },
   title: {
     fontSize: 28,
-    fontWeight: "600",
-    color: colors.ink,
+    fontWeight: "700",
+    color: colors.white,
   },
   subtitle: {
-    fontSize: 16,
-    lineHeight: 22,
-    color: colors.muted,
+    fontSize: 15,
+    lineHeight: 21,
+    color: "rgba(255,255,255,0.65)",
   },
   memberHint: {
     fontSize: 14,
@@ -307,9 +316,9 @@ const styles = StyleSheet.create({
   },
   submit: {
     marginTop: 8,
-    backgroundColor: colors.green,
-    borderRadius: 12,
-    minHeight: 48,
+    backgroundColor: colors.night,
+    borderRadius: 999,
+    minHeight: 50,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -317,9 +326,9 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitText: {
-    color: colors.white,
+    color: colors.lime,
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   status: {
     marginTop: 8,

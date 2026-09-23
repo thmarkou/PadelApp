@@ -19,7 +19,7 @@ export function CourtFormScreen() {
   const existing = courts.find((court) => court.id === route.params.courtId);
   const [name, setName] = useState(existing?.name ?? "");
   const [kind, setKind] = useState<"indoor" | "outdoor">(existing?.kind ?? "outdoor");
-  const [openTime, setOpenTime] = useState(existing?.openTime.slice(0, 5) ?? "08:00");
+  const [openTime, setOpenTime] = useState(existing?.openTime.slice(0, 5) ?? "09:30");
   const [closeTime, setCloseTime] = useState(existing?.closeTime.slice(0, 5) ?? "23:00");
   const [isActive, setIsActive] = useState(existing?.isActive ?? true);
   const [busy, setBusy] = useState(false);

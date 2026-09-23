@@ -9,6 +9,7 @@ import type {
   StandingRow,
   Tournament,
   TournamentCategory,
+  TournamentPlaySlot,
   TournamentStatus,
 } from "@padelapp/shared";
 import { canManagePlayers, canOverridePairing, canProposePairing } from "@padelapp/shared";
@@ -373,6 +374,7 @@ export type DaySlot = {
     meOnBooking?: boolean;
     spots: SlotSpot[];
     openSpots: number;
+    durationMinutes?: number;
     pairing?: PairingResult | null;
   } | null;
   waitlistCount: number;
@@ -393,6 +395,15 @@ export type DaySlotsResponse = {
   waitlistEnabled: boolean;
   courts: DayCourt[];
 };
+
+export type MonthDaysResponse = {
+  month: string;
+  days: Array<{ date: string; bookings: number; ready: number }>;
+};
+
+export async function fetchMonthSlots(token: string, month: string): Promise<MonthDaysResponse> {
+  return apiFetch(`/slots/month?month=${month}`, { token });
+}
 
 export async function fetchDaySlots(
   token: string,
@@ -514,6 +525,8 @@ export type TournamentEntry = {
   gender: Player["gender"];
   birthYear: number | null;
   level: number | null;
+  availableAll?: boolean;
+  availableSlotIds?: string[];
 };
 
 export type TournamentMatchView = {
@@ -525,6 +538,9 @@ export type TournamentMatchView = {
   scoreA: number | null;
   scoreB: number | null;
   closed: boolean;
+  bye?: boolean;
+  stage?: string;
+  groupIndex?: number | null;
 };
 
 export type TournamentRoundView = {
@@ -536,8 +552,14 @@ export type TournamentRoundView = {
 export type CategoryDetail = {
   tournament: Tournament | undefined;
   category: TournamentCategory;
+  playSlots?: TournamentPlaySlot[];
   entries: TournamentEntry[];
   standings: StandingRow[];
+  groups?: Array<{
+    index: number;
+    standings: Array<{ names: string[]; wins: number; played: number; diff: number }>;
+  }>;
+  groupStageComplete?: boolean;
   rounds: TournamentRoundView[];
 };
 
@@ -557,7 +579,8 @@ export async function createTournament(
   token: string,
   body: {
     name: string;
-    startsOn: string;
+    startsOn?: string;
+    playDates?: string[];
     presetId: string;
     categories: Array<{
       name: string;
@@ -593,11 +616,16 @@ export async function registerCategoryEntry(
   token: string,
   categoryId: string,
   playerId?: string,
+  availability?: { availableAll: boolean; availableSlotIds: string[] },
 ): Promise<void> {
   await apiFetch(`/categories/${categoryId}/entries`, {
     method: "POST",
     token,
-    body: JSON.stringify(playerId ? { playerId } : {}),
+    body: JSON.stringify({
+      ...(playerId ? { playerId } : {}),
+      availableAll: availability?.availableAll ?? true,
+      availableSlotIds: availability?.availableSlotIds ?? [],
+    }),
   });
 }
 

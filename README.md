@@ -1,9 +1,9 @@
 # PadelApp
 
-Λειτουργικό σύστημα για ένα padel club: **desk στο browser**, **iPad / κινητό** (ένα Expo app).
-Δεδομένα στο club. Όχι εθνικό πρωτάθλημα. Ελληνικά και Αγγλικά.
+Λειτουργικό σύστημα για padel club: **desk στο browser**, **κινητό παίκτη** (ένα Expo app).
+Εμείς φιλοξενούμε API και βάση στην ΕΕ. Όχι εθνικό πρωτάθλημα. Ελληνικά και Αγγλικά.
 
-Διάβασε [docs/PRODUCT.md](docs/PRODUCT.md), [docs/PLAN.md](docs/PLAN.md) και [docs/CHANGELOG.md](docs/CHANGELOG.md) πριν γράψεις κώδικα. Store: [docs/STORE.md](docs/STORE.md). VPS: [docs/VPS.md](docs/VPS.md).
+Διάβασε [docs/PRODUCT.md](docs/PRODUCT.md), [docs/PLAN.md](docs/PLAN.md) και [docs/CHANGELOG.md](docs/CHANGELOG.md) πριν γράψεις κώδικα. Store: [docs/STORE.md](docs/STORE.md). Φιλοξενία: [docs/HOSTING.md](docs/HOSTING.md).
 
 ## Isolation
 
@@ -18,7 +18,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-- API του club: `0.0.0.0:3040`
+- API (dev): `0.0.0.0:3040`
 - Desk (ρεσεψιόν): `127.0.0.1:3041`
 - Expo / Metro: **8084**
 - Βάση ανάπτυξης: PGlite σε `./data/pglite`
@@ -46,5 +46,5 @@ Desk: http://127.0.0.1:3041 — μόνο owner / reception / coach.
 
 - `apps/mobile` — iPhone, iPad, Android (παίκτης και staff στο γήπεδο)
 - `apps/web` — desk γραμματείας (browser)
-- `apps/api` — API ανά εγκατάσταση club
+- `apps/api` — ένα API, πολλά club (`club_id`)
 - `packages/shared` — τύποι, ρυθμίσεις, μηχανές σλοτ / ζευγαριών

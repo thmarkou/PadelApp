@@ -17,9 +17,11 @@ export function HomeScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.flex}>
-      <Text style={[styles.kicker, { color: brand }]}>{club.name}</Text>
-      <Text style={styles.title}>{t("home.hello", { name: user.displayName })}</Text>
-      <Text style={styles.hint}>{t(roleHintKey(user.role))}</Text>
+      <View style={styles.hero}>
+        <Text style={styles.heroKicker}>{club.name}</Text>
+        <Text style={styles.heroTitle}>{t("home.hello", { name: user.displayName })}</Text>
+        <Text style={styles.heroHint}>{t(roleHintKey(user.role))}</Text>
+      </View>
 
       <View style={styles.card}>
         <Row label={t("home.club")} value={club.name} />
@@ -103,17 +105,30 @@ function Row({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.cream },
-  content: { padding: 24, paddingBottom: 40, gap: 8 },
-  kicker: {
-    fontSize: 13,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    fontWeight: "600",
+  content: { padding: 20, paddingBottom: 40, gap: 8 },
+  hero: {
+    backgroundColor: colors.night,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 8,
+    gap: 6,
   },
-  title: {
+  heroKicker: {
+    fontSize: 12,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+    fontWeight: "700",
+    color: colors.lime,
+  },
+  heroTitle: {
     fontSize: 26,
-    fontWeight: "600",
-    color: colors.ink,
+    fontWeight: "700",
+    color: colors.white,
+  },
+  heroHint: {
+    fontSize: 15,
+    lineHeight: 21,
+    color: "rgba(255,255,255,0.65)",
   },
   hint: {
     fontSize: 15,
@@ -123,7 +138,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.white,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
     gap: 10,
     borderWidth: 1,

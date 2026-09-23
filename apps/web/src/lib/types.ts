@@ -6,6 +6,7 @@ import type {
   StandingRow,
   Tournament,
   TournamentCategory,
+  TournamentPlaySlot,
 } from "@padelapp/shared";
 
 export type PublicClub = { slug: string; name: string };
@@ -28,6 +29,7 @@ export type DayBooking = {
   id: string;
   spots: DaySpot[];
   openSpots: number;
+  durationMinutes?: number;
 };
 
 export type DaySlot = {
@@ -68,6 +70,8 @@ export type TournamentEntry = {
   gender: Player["gender"];
   birthYear: number | null;
   level: number | null;
+  availableAll?: boolean;
+  availableSlotIds?: string[];
 };
 
 export type TournamentMatchView = {
@@ -79,6 +83,22 @@ export type TournamentMatchView = {
   scoreA: number | null;
   scoreB: number | null;
   closed: boolean;
+  bye: boolean;
+  stage?: string;
+  groupIndex?: number | null;
+};
+
+export type GroupStandingView = {
+  names: string[];
+  wins: number;
+  played: number;
+  diff: number;
+};
+
+export type GroupView = {
+  index: number;
+  teams: Array<{ names: string[]; playerIds: [string, string] }>;
+  standings: GroupStandingView[];
 };
 
 export type TournamentRoundView = {
@@ -90,7 +110,10 @@ export type TournamentRoundView = {
 export type CategoryDetail = {
   tournament: Tournament | undefined;
   category: TournamentCategory;
+  playSlots?: TournamentPlaySlot[];
   entries: TournamentEntry[];
   standings: StandingRow[];
+  groups?: GroupView[];
+  groupStageComplete?: boolean;
   rounds: TournamentRoundView[];
 };

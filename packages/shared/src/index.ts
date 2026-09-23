@@ -36,7 +36,7 @@ export { appLocales, appRoles, playerGenders, tournamentGenderRules, tournamentS
 
 export { clubSettingsSchema, parseClubSettings } from "./settings.js";
 export type { ClubSettingsInput } from "./settings.js";
-export { settingsClubDaytime, settingsClubEvening } from "./defaults.js";
+export { ensureDefaultPresets, settingsClubDaytime, settingsClubEvening } from "./defaults.js";
 export {
   bandForLevel,
   canAccessDesk,
@@ -55,6 +55,7 @@ export {
   canProposePairing,
   cyclePairing,
   fourPlayerOverrides,
+  pairAmericano,
   pairForCategory,
   pairMixedDoubles,
   pairPlayers,
@@ -79,5 +80,64 @@ export type { CategoryEligibility } from "./categories.js";
 export { canErasePlayer } from "./erase.js";
 export { standingsFromMatches } from "./standings.js";
 export type { ScoredMatch, StandingRow } from "./standings.js";
-export { generateDaySlots } from "./slots.js";
+export {
+  KnockoutError,
+  formBracketTeams,
+  isByeMatch,
+  nextKnockoutRound,
+  nextPowerOfTwo,
+  seedFirstRound,
+  seedSlots,
+  winningTeam,
+} from "./bracket.js";
+export type { BracketMatchDraft, BracketTeam } from "./bracket.js";
+export {
+  GroupsError,
+  fixtureKey,
+  groupQualifiers,
+  groupSizes,
+  groupStageComplete,
+  groupStandings,
+  knockoutFromQualifiers,
+  nextGroupMatchday,
+  roundRobinRounds,
+  snakeIntoGroups,
+  splitIntoGroups,
+} from "./groups.js";
+export type { GroupAssignment, GroupMatchDraft, GroupScoredMatch, GroupStandingRow } from "./groups.js";
+export {
+  KotcError,
+  kotcCourtKind,
+  losingPair,
+  nextKotcRound,
+  replacePlayerInKotc,
+  seedKotcCourts,
+  splitKotcBench,
+  winningPair,
+} from "./kotc.js";
+export type { KotcBenchPlayer, KotcCourtResult, KotcMatchDraft } from "./kotc.js";
+export {
+  bookingDisplayKind,
+  bookingFitsDay,
+  CLUB_DAY_END,
+  CLUB_DAY_START,
+  CLUB_GRID_MINUTES,
+  generateDaySlots,
+  rangesOverlap,
+  timeFromStamp,
+} from "./slots.js";
 export type { GeneratedSlot } from "./slots.js";
+export { addMonths, monthCells, monthKeyFromIso, monthRange } from "./month.js";
+export {
+  MAX_TOURNAMENT_AVAILABLE_SLOTS,
+  WEEKDAY_PLAY_WINDOWS,
+  WEEKEND_PLAY_WINDOWS,
+  defaultWindowsForDate,
+  expandPlayDates,
+  groupSlotsByDate,
+  isPlayTime,
+  isWeekendIso,
+  parseAvailable,
+  toggleAvailable,
+} from "./playSlots.js";
+export type { PlaySlotDraft, PlayWindow, TournamentPlaySlot } from "./playSlots.js";

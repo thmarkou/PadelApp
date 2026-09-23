@@ -5,6 +5,7 @@ import {
   canOverridePairing,
   canProposePairing,
   cyclePairing,
+  pairAmericano,
   pairForCategory,
   pairMixedDoubles,
   pairPlayers,
@@ -71,6 +72,21 @@ test("desk picks which pair the leftover joins", () => {
   assert.deepEqual(result.matches[0]?.pairA.playerIds, ["e", "b"]);
   assert.deepEqual(result.matches[0]?.pairB.playerIds, ["c", "d"]);
   assert.deepEqual(result.leftover, [{ id: "a", name: "a" }]);
+});
+
+test("americano second round avoids the same partners", () => {
+  const players = [p("a", 4), p("b", 4), p("c", 3), p("d", 3), p("e", 2), p("f", 2), p("g", 1), p("h", 1)];
+  const first = pairAmericano(players);
+  const prior: Array<[string, string]> = first.matches.flatMap((match) => [
+    match.pairA.playerIds,
+    match.pairB.playerIds,
+  ]);
+  const second = pairAmericano(players, { priorPartnerPairs: prior });
+  const firstKeys = new Set(prior.map(([left, right]) => [left, right].sort().join("+")));
+  for (const match of second.matches) {
+    assert.equal(firstKeys.has([...match.pairA.playerIds].sort().join("+")), false);
+    assert.equal(firstKeys.has([...match.pairB.playerIds].sort().join("+")), false);
+  }
 });
 
 test("next mexicano round brings last leftover back in", () => {

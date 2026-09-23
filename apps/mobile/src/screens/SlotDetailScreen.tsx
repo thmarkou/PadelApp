@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
 import { useFocusEffect, useRoute, type RouteProp } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
+import { canManagePlayers } from "@padelapp/shared";
 import { isApiError, useSignedIn } from "../auth/AuthProvider";
 import { Chip, ChipWrap, Field, SaveButton, StatusText } from "../components/forms";
 import {
@@ -26,7 +27,7 @@ import {
 import { slotTimeLabel } from "../lib/dates";
 import type { CalendarStackParamList } from "../navigation/types";
 import { colors } from "../theme";
-import { slotStatus } from "./CalendarScreen";
+import { slotStatusLabel } from "./CalendarScreen";
 import { SettingsScroll } from "./settings/form";
 
 type SpotDraft = { name: string; playerId?: string };
@@ -78,8 +79,12 @@ export function SlotDetailScreen() {
     setMatches(await searchPlayers(token, value));
   }
 
-  const status = slot ? slotStatus(slot) : "available";
-  const canJoin = Boolean(slot?.booking && slot.booking.openSpots > 0);
+
+  const held = Boolean(slot?.booking && slot.booking.spots.length === 0);
+  const staff = canEditCourts(user.role) || canManagePlayers(user.role);
+  const canJoin = Boolean(
+    slot?.booking && slot.booking.openSpots > 0 && (!held || staff),
+  );
   const canBook = Boolean(slot && !slot.maintenance && !slot.booking);
   const canCancel = Boolean(slot?.booking && (slot.booking.mine || canEditCourts(user.role)));
   const names = useMemo(() => slot?.booking?.spots.map((spot) => spot.name) ?? [], [slot]);
@@ -117,7 +122,7 @@ export function SlotDetailScreen() {
       <Text style={styles.title}>
         {slotTimeLabel(startsAt)} · {durationMinutes}′
       </Text>
-      <Text style={styles.meta}>{t(`calendar.status.${status}`)}</Text>
+      <Text style={styles.meta}>{slot ? slotStatusLabel(slot, t) : t("calendar.status.available")}</Text>
       {names.length > 0 ? (
         <Text style={styles.names}>{names.join(" · ")}</Text>
       ) : null}
@@ -219,7 +224,7 @@ export function SlotDetailScreen() {
           label={t("calendar.book")}
           busy={busy}
           onPress={() => {
-            if (selected.length === 0) {
+            if (selected.length === 0 && !canEditCourts(user.role)) {
               return;
             }
             void run(async () => {

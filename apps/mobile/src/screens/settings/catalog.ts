@@ -22,8 +22,6 @@ export const tournamentFormats: TournamentFormat[] = [
   "kotc",
   "knockout",
   "groups_ko",
-  "round_robin",
-  "box_league",
 ];
 
 export const featureFlagKeys: Array<keyof FeatureFlags> = [

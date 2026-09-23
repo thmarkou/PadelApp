@@ -1,21 +1,38 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DeskShell } from "../../components/DeskShell";
+import { MonthCalendar } from "../../components/MonthCalendar";
+import { PlayerPicker, type PlayerPickerHandle, type PlayerSpot } from "../../components/PlayerPicker";
 import { apiFetch } from "../../lib/api";
 import { addIsoDays, slotTime, todayIso } from "../../lib/dates";
 import type { DayCourt, DaySlot, DaySlotsResponse, SettingsPayload } from "../../lib/types";
 
-function slotKind(slot: DaySlot): "maintenance" | "available" | "open" | "full" {
+function slotKind(slot: DaySlot): "maintenance" | "available" | "held" | "open" | "full" {
   if (slot.maintenance) {
     return "maintenance";
   }
   if (!slot.booking) {
     return "available";
   }
-  return slot.booking.openSpots > 0 ? "open" : "full";
+  const n = slot.booking.spots.length;
+  if (n <= 0) {
+    return "held";
+  }
+  if (n < 4) {
+    return "open";
+  }
+  return "full";
 }
+
+const slotTone: Record<ReturnType<typeof slotKind>, string> = {
+  maintenance: "border-ink/10 bg-mist/50 text-ink/45",
+  available: "border-court/35 bg-[#E7F4EC]",
+  held: "border-night/30 bg-lime/40",
+  open: "border-amber-700/40 bg-[#F8EBD9]",
+  full: "border-court bg-court text-white",
+};
 
 export default function CalendarPage() {
   const { t } = useTranslation();
@@ -23,18 +40,20 @@ export default function CalendarPage() {
   const [duration, setDuration] = useState<number | null>(null);
   const [templates, setTemplates] = useState<number[]>([]);
   const [courts, setCourts] = useState<DayCourt[]>([]);
-  const [names, setNames] = useState("");
+  const [spots, setSpots] = useState<PlayerSpot[]>([]);
+  const [addingAt, setAddingAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [monthRevision, setMonthRevision] = useState(0);
+  const pickerRef = useRef<PlayerPickerHandle>(null);
 
   const load = useCallback(async (): Promise<void> => {
     const settings = await apiFetch<SettingsPayload>("/settings");
     const durations = settings.settings.slotTemplates.map((item) => item.durationMinutes);
     setTemplates(durations);
-    const used = duration ?? settings.settings.defaultSlotDurationMinutes;
     if (duration === null) {
-      setDuration(used);
+      setDuration(settings.settings.defaultSlotDurationMinutes);
     }
-    const day = await apiFetch<DaySlotsResponse>(`/slots?date=${date}&duration=${used}`);
+    const day = await apiFetch<DaySlotsResponse>(`/slots?date=${date}`);
     setCourts(day.courts);
   }, [date, duration]);
 
@@ -44,28 +63,56 @@ export default function CalendarPage() {
     });
   }, [load, t]);
 
-  async function book(courtId: string, startsAt: string, durationMinutes: number): Promise<void> {
-    const spots = names
-      .split(",")
-      .map((name) => name.trim())
-      .filter(Boolean)
-      .slice(0, 4)
-      .map((name) => ({ name }));
-    if (spots.length === 0) {
-      setError(t("schedule.names"));
-      return;
-    }
+  function pickedSpots(): PlayerSpot[] {
+    return pickerRef.current?.takeSpots() ?? spots;
+  }
+
+  async function book(courtId: string, startsAt: string): Promise<void> {
+    const used = duration ?? 90;
+    const next = pickedSpots();
     await apiFetch("/bookings", {
       method: "POST",
-      body: JSON.stringify({ courtId, startsAt, durationMinutes, spots }),
+      body: JSON.stringify({ courtId, startsAt, durationMinutes: used, spots: next }),
     });
-    setNames("");
+    setSpots([]);
+    setError(null);
     await load();
+    setMonthRevision((current) => current + 1);
+  }
+
+  async function addSpots(bookingId: string, next: PlayerSpot[]): Promise<void> {
+    if (next.length === 0) {
+      return;
+    }
+    for (const spot of next) {
+      await apiFetch(`/bookings/${bookingId}/spots`, {
+        method: "POST",
+        body: JSON.stringify(spot),
+      });
+    }
+    setSpots([]);
+    setAddingAt(null);
+    setError(null);
+    await load();
+    setMonthRevision((current) => current + 1);
+  }
+
+  function startAdd(bookingId: string, startsAt: string): void {
+    const next = pickedSpots();
+    if (next.length > 0) {
+      void addSpots(bookingId, next).catch((caught: unknown) => {
+        setError(caught instanceof Error ? caught.message : t("errors.internal"));
+      });
+      return;
+    }
+    setError(null);
+    setAddingAt(`${bookingId}:${startsAt}`);
   }
 
   async function cancel(bookingId: string): Promise<void> {
     await apiFetch(`/bookings/${bookingId}/cancel`, { method: "POST" });
     await load();
+    setMonthRevision((current) => current + 1);
   }
 
   return (
@@ -94,9 +141,12 @@ export default function CalendarPage() {
         </div>
       </div>
 
+      <div className="mt-6 max-w-md">
+        <MonthCalendar date={date} onSelect={setDate} revision={monthRevision} />
+      </div>
       <div className="mt-6 flex flex-wrap gap-3">
         <label className="text-sm">
-          {t("schedule.duration")}
+          {t("schedule.matchDuration")}
           <select
             className="ml-2 rounded-lg border border-ink/15 px-3 py-2"
             value={duration ?? ""}
@@ -109,13 +159,16 @@ export default function CalendarPage() {
             ))}
           </select>
         </label>
-        <input
-          className="min-w-64 flex-1 rounded-lg border border-ink/15 px-3 py-2"
-          value={names}
-          onChange={(event) => setNames(event.target.value)}
-          placeholder={t("schedule.names")}
-        />
+        <PlayerPicker ref={pickerRef} selected={spots} onChange={setSpots} />
       </div>
+      <ul className="mt-4 flex flex-wrap gap-3 text-xs text-ink/60">
+        {(["available", "held", "open", "full"] as const).map((kind) => (
+          <li key={kind} className="flex items-center gap-1.5">
+            <span className={`inline-block size-3 rounded-sm border ${slotTone[kind]}`} />
+            {t(`schedule.${kind}`)}
+          </li>
+        ))}
+      </ul>
       {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
 
       <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -131,15 +184,44 @@ export default function CalendarPage() {
               {court.slots.map((slot) => {
                 const kind = slotKind(slot);
                 return (
-                  <li key={slot.startsAt} className="flex items-center justify-between gap-2 rounded-lg border border-ink/10 px-3 py-2 text-sm">
+                  <li
+                    key={slot.startsAt}
+                    className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm ${slotTone[kind]}`}
+                  >
                     <span className="font-medium">{slotTime(slot.startsAt)}</span>
                     {kind === "maintenance" ? (
-                      <span className="text-ink/45">{t("schedule.maintenance")}</span>
+                      <span>{t("schedule.maintenance")}</span>
                     ) : slot.booking ? (
-                      <span className="flex items-center gap-2">
-                        <span className="text-ink/70">
-                          {slot.booking.spots.map((spot) => spot.name).join(", ") || t(`schedule.${kind}`)}
+                      <span className="flex flex-wrap items-center justify-end gap-2">
+                        <span>
+                          {slot.booking.spots.map((spot) => spot.name).join(", ") || t("schedule.held")}
                         </span>
+                        {addingAt === `${slot.booking.id}:${slot.startsAt}` ? (
+                          <span className="flex min-w-52 items-start gap-2">
+                            <PlayerPicker
+                              compact
+                              autoFocus
+                              max={slot.booking.openSpots}
+                              selected={[]}
+                              onChange={(next) => {
+                                const spot = next[0];
+                                if (!spot) {
+                                  return;
+                                }
+                                void addSpots(slot.booking!.id, [spot]).catch((caught: unknown) => {
+                                  setError(caught instanceof Error ? caught.message : t("errors.internal"));
+                                });
+                              }}
+                            />
+                            <button type="button" className="mt-2 text-xs underline" onClick={() => setAddingAt(null)}>
+                              {t("common.cancel")}
+                            </button>
+                          </span>
+                        ) : slot.booking.openSpots > 0 ? (
+                          <button type="button" className="underline" onClick={() => startAdd(slot.booking!.id, slot.startsAt)}>
+                            {t("schedule.addPlayers")}
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           className="underline"
@@ -155,9 +237,9 @@ export default function CalendarPage() {
                     ) : (
                       <button
                         type="button"
-                        className="text-court underline"
+                        className="font-medium text-court underline"
                         onClick={() => {
-                          void book(court.id, slot.startsAt, slot.durationMinutes).catch((caught: unknown) => {
+                          void book(court.id, slot.startsAt).catch((caught: unknown) => {
                             setError(caught instanceof Error ? caught.message : t("errors.internal"));
                           });
                         }}

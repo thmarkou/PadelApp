@@ -1,9 +1,11 @@
 import type {
+  PlaySlotDraft,
   Scoring,
   Tournament,
   TournamentCategory,
   TournamentFormat,
   TournamentGenderRule,
+  TournamentPlaySlot,
   TournamentStatus,
 } from "@padelapp/shared";
 import { query } from "./pool.js";
@@ -131,6 +133,66 @@ export async function setTournamentStatus(
   );
   const row = result.rows[0];
   return row ? mapTournament(row) : undefined;
+}
+
+function mapPlaySlot(row: {
+  id: string;
+  play_date: string;
+  start_time: string;
+  end_time: string;
+  sort_order: number;
+}): TournamentPlaySlot {
+  return {
+    id: row.id,
+    playDate: String(row.play_date).slice(0, 10),
+    start: String(row.start_time).slice(0, 5),
+    end: String(row.end_time).slice(0, 5),
+    sortOrder: row.sort_order,
+  };
+}
+
+export async function listPlaySlots(clubId: string, tournamentId: string): Promise<TournamentPlaySlot[]> {
+  const result = await query<{
+    id: string;
+    play_date: string;
+    start_time: string;
+    end_time: string;
+    sort_order: number;
+  }>(
+    `SELECT id, play_date::text, start_time::text, end_time::text, sort_order
+     FROM tournament_play_slots
+     WHERE club_id = $1 AND tournament_id = $2
+     ORDER BY play_date, sort_order`,
+    [clubId, tournamentId],
+  );
+  return result.rows.map(mapPlaySlot);
+}
+
+export async function insertPlaySlots(
+  clubId: string,
+  tournamentId: string,
+  drafts: PlaySlotDraft[],
+): Promise<TournamentPlaySlot[]> {
+  const created: TournamentPlaySlot[] = [];
+  for (const [index, draft] of drafts.entries()) {
+    const result = await query<{
+      id: string;
+      play_date: string;
+      start_time: string;
+      end_time: string;
+      sort_order: number;
+    }>(
+      `INSERT INTO tournament_play_slots (tournament_id, club_id, play_date, start_time, end_time, sort_order)
+       VALUES ($1, $2, $3::date, $4::time, $5::time, $6)
+       RETURNING id, play_date::text, start_time::text, end_time::text, sort_order`,
+      [tournamentId, clubId, draft.playDate, draft.start, draft.end, index],
+    );
+    const row = result.rows[0];
+    if (row) {
+      created.push(mapPlaySlot(row));
+    }
+  }
+  return created;
 }
 
 export async function listCategories(clubId: string, tournamentId: string): Promise<TournamentCategory[]> {

@@ -32,7 +32,7 @@ const eveningSocial: TournamentPreset = {
 const officialAdvantage: TournamentPreset = {
   id: "official-advantage",
   name: "Best of 3, advantage, super TB 10",
-  format: "round_robin",
+  format: "knockout",
   scoring: {
     kind: "official",
     deuce: "advantage",
@@ -53,6 +53,26 @@ const oneSetGolden: TournamentPreset = {
   },
 };
 
+const kotcRace: TournamentPreset = {
+  id: "kotc-race-5",
+  name: "King of the Court — race 5",
+  format: "kotc",
+  scoring: { kind: "kotc_race", raceTo: 5 },
+};
+
+const v1Formats = new Set(["americano", "mexicano", "kotc", "knockout", "groups_ko"]);
+
+/** Older club rows may miss KOTC or still name unfinished formats. */
+export function ensureDefaultPresets(settings: ClubSettings): ClubSettings {
+  const presets = settings.tournamentPresets.map((preset) =>
+    v1Formats.has(preset.format) ? preset : { ...preset, format: "knockout" as const },
+  );
+  if (!presets.some((preset) => preset.format === "kotc")) {
+    presets.push(kotcRace);
+  }
+  return { ...settings, tournamentPresets: presets };
+}
+
 const miniSets: TournamentPreset = {
   id: "mini-sets",
   name: "Mini-sets, golden point, best of 3",
@@ -71,10 +91,10 @@ const defaultBands = [
   { id: "A", name: "A", min: 5.0, max: 7.0 },
 ];
 
-/** Club A — typical Greek evening club (90′ slots, Mexicano). */
+/** Club A — typical Greek evening club (30′ timetable, Mexicano). */
 export function settingsClubEvening(name: string): ClubSettings {
   return {
-    branding: { name, primaryColor: "#1F6B4A", logoUrl: null },
+    branding: { name, primaryColor: "#0F8A58", logoUrl: null },
     locale: "el",
     timezone: "Europe/Athens",
     currency: "EUR",
@@ -98,6 +118,7 @@ export function settingsClubEvening(name: string): ClubSettings {
     pairing: { algorithm: "mexicano", allowAdminOverride: true },
     tournamentPresets: [
       eveningSocial,
+      kotcRace,
       officialWeekend,
       officialAdvantage,
       oneSetGolden,
@@ -143,6 +164,7 @@ export function settingsClubDaytime(name: string): ClubSettings {
         format: "americano",
         scoring: { kind: "fixed_points", points: 24 },
       },
+      kotcRace,
       officialWeekend,
       miniSets,
     ],

@@ -1,3 +1,5 @@
+import type { TournamentPlaySlot } from "./playSlots.js";
+
 export type ClubId = string;
 
 /** App UI languages. Add a locale here and a translation file — screens stay unchanged. */
@@ -176,6 +178,7 @@ export type Tournament = {
   scoring: Scoring;
   status: TournamentStatus;
   createdAt: string;
+  playSlots?: TournamentPlaySlot[];
 };
 
 export type TournamentCategory = TournamentCategoryRule & {

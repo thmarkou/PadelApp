@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ensureDefaultPresets } from "./defaults.js";
 
 const officialScoringSchema = z.object({
   kind: z.literal("official"),
@@ -103,5 +104,5 @@ export const clubSettingsSchema = z.object({
 export type ClubSettingsInput = z.input<typeof clubSettingsSchema>;
 
 export function parseClubSettings(value: unknown) {
-  return clubSettingsSchema.parse(value);
+  return ensureDefaultPresets(clubSettingsSchema.parse(value));
 }

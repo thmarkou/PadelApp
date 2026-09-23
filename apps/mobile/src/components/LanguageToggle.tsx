@@ -45,8 +45,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   chipSelected: {
-    backgroundColor: colors.green,
-    borderColor: colors.green,
+    backgroundColor: colors.night,
+    borderColor: colors.night,
   },
   chipText: {
     fontSize: 14,
@@ -54,6 +54,6 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   chipTextSelected: {
-    color: colors.white,
+    color: colors.lime,
   },
 });
